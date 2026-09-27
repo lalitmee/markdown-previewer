@@ -77,7 +77,7 @@ body {
   transition: color .15s;
 }
 .brand:hover { color: var(--accent); }
-.brand svg { color: var(--accent); }
+.brand-icon { width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; }
 
 .topbar-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
 .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap; }

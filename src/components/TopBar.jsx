@@ -4,7 +4,7 @@ export default function TopBar({ theme, onToggleTheme, doc, onHome, library }) {
       <div className="topbar-left">
         {!doc && (
           <button className="brand" onClick={onHome} title="MD Prev — go home" aria-label="Go home">
-            <span className="material-symbols-outlined brand-icon">description</span>
+            <img className="brand-icon" src="/logo.svg" alt="" aria-hidden="true" />
             <span>MD Prev</span>
           </button>
         )}
