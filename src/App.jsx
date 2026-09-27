@@ -1,0 +1,236 @@
+import { useEffect, useRef, useState } from 'react';
+import TopBar from './components/TopBar';
+import Picker from './components/Picker';
+import Library from './components/Library';
+import Preview from './components/Preview';
+import HistorySection from './components/HistorySection';
+import { createHistory } from './lib/history';
+import { isFsaSupported, pickSingleFile, pickFolder, requestPermission, listMdFiles, readFileText, saveFileText } from './lib/fs-access';
+
+const history = createHistory();
+const THEME_KEY = 'mdpv-theme';
+const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+const FONT_KEY = 'mdpv-editor-font';
+const WIDTH_KEY = 'mdpv-width';
+const VIEWMODE_KEY = 'mdpv-viewmode';
+const FONT_OPTIONS = [
+  { label: 'Monospace (default)', value: MONO_STACK },
+  { label: 'Menlo', value: 'Menlo, monospace' },
+  { label: 'SF Mono', value: '"SF Mono", Menlo, monospace' },
+  { label: 'Consolas', value: 'Consolas, monospace' },
+  { label: 'Fira Code', value: '"Fira Code", Menlo, monospace' },
+  { label: 'JetBrains Mono', value: '"JetBrains Mono", Menlo, monospace' },
+  { label: 'Iosevka', value: 'Iosevka, monospace' },
+  { label: 'Courier New', value: '"Courier New", monospace' },
+  { label: 'Google Sans Flex', value: "'Google Sans Flex', 'Google Sans', Roboto, sans-serif" },
+  { label: 'Georgia', value: 'Georgia, serif' },
+];
+const WIDTH_OPTIONS = [
+  { key: 'normal', label: 'Normal', px: '860px' },
+  { key: 'wide', label: 'Wide', px: '1140px' },
+  { key: 'wider', label: 'Wider', px: '1500px' },
+];
+
+function loadStored(key, fallback) {
+  try { return localStorage.getItem(key) || fallback; } catch (_) { return fallback; }
+}
+
+export default function App() {
+  const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'light'));
+  const [view, setView] = useState('picker'); // picker | library | preview
+  const [folder, setFolder] = useState(null);   // { name, handle }
+  const [files, setFiles] = useState([]);
+  const [historyList, setHistoryList] = useState([]);
+  const [active, setActive] = useState(null);   // { name, path, handle }
+  const [text, setText] = useState('');
+  const [notice, setNotice] = useState('');
+  const [indexed, setIndexed] = useState(0);
+  const [mode, setMode] = useState('preview');  // preview | edit
+  const [editorFont, setEditorFont] = useState(() => loadStored(FONT_KEY, MONO_STACK));
+  const [widthMode, setWidthMode] = useState(() => loadStored(WIDTH_KEY, 'normal'));
+  const [viewMode, setViewMode] = useState(() => loadStored(VIEWMODE_KEY, 'grid')); // grid | list
+  const [query, setQuery] = useState('');
+  const cacheRef = useRef(new Map());
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  useEffect(() => { history.list().then(setHistoryList); }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(''), 2600);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  function goHome() {
+    setView('picker');
+    setFolder(null);
+    setFiles([]);
+    setActive(null);
+    setQuery('');
+  }
+
+  function pickViewMode(v) {
+    setViewMode(v);
+    try { localStorage.setItem(VIEWMODE_KEY, v); } catch (_) { /* ignore */ }
+  }
+
+  async function loadFolder(handle, name) {
+    cacheRef.current = new Map();
+    const md = await listMdFiles(handle);
+    setFolder({ name, handle });
+    setFiles(md);
+    setActive(null);
+    setView('library');
+    setIndexed(0);
+    for (let i = 0; i < md.length; i++) {
+      const f = md[i];
+      try { cacheRef.current.set(f.path, await readFileText(f.handle)); } catch (_) { /* skip unreadable */ }
+      setIndexed(i + 1);
+    }
+    setNotice('');
+  }
+
+  async function openEntry(entry) {
+    const t = cacheRef.current.get(entry.path) ?? await readFileText(entry.handle);
+    if (!cacheRef.current.has(entry.path)) cacheRef.current.set(entry.path, t);
+    setActive(entry);
+    setText(t);
+    setView('preview');
+  }
+
+  async function onPickFolder() {
+    const handle = await pickFolder();
+    if (!handle) return;
+    persistHistory(handle);
+    await loadFolder(handle, handle.name);
+  }
+
+  async function onPickSingleFile() {
+    const handle = await pickSingleFile();
+    if (!handle) return;
+    const t = await readFileText(handle);
+    persistHistory(handle);
+    cacheRef.current.set(handle.name, t);
+    setActive({ name: handle.name, path: handle.name, handle });
+    setText(t);
+    setView('preview');
+  }
+
+  async function persistHistory(handle) {
+    try { await history.add(handle); } catch (_) { /* persistence is best-effort */ }
+    try { setHistoryList(await history.list()); } catch (_) { /* ignore */ }
+  }
+
+  async function onOpenHistory(h) {
+    const granted = await requestPermission(h.handle);
+    if (!granted) { setNotice('Permission denied. Re-pick the folder or file.'); setView('picker'); return; }
+    if (h.kind === 'directory') {
+      await loadFolder(h.handle, h.name);
+    } else {
+      setActive({ name: h.name, path: h.name, handle: h.handle });
+      setText(await readFileText(h.handle));
+      setView('preview');
+    }
+  }
+
+  async function onSave(markdown) {
+    if (!active || !active.handle || typeof active.handle.createWritable !== 'function') return;
+    try {
+      await saveFileText(active.handle, markdown);
+      setNotice('Saved ✓');
+    } catch (err) {
+      setNotice('Save failed: ' + (err && err.message));
+    }
+  }
+
+  function onBack() {
+    setActive(null);
+    setView(folder ? 'library' : 'picker');
+  }
+
+  const canSave = () => active && active.handle && typeof active.handle.createWritable === 'function';
+
+  function pickFont(v) {
+    setEditorFont(v);
+    try { localStorage.setItem(FONT_KEY, v); } catch (_) { /* ignore */ }
+  }
+
+  function cycleWidth() {
+    setWidthMode((w) => {
+      const next = WIDTH_OPTIONS[(WIDTH_OPTIONS.findIndex((o) => o.key === w) + 1) % WIDTH_OPTIONS.length];
+      try { localStorage.setItem(WIDTH_KEY, next.key); } catch (_) { /* ignore */ }
+      return next.key;
+    });
+  }
+
+  const doc = view === 'preview' && active ? {
+    title: active.name,
+    onBack,
+    mode,
+    onMode: setMode,
+    font: editorFont,
+    onFont: pickFont,
+    fontOptions: FONT_OPTIONS,
+    widthLabel: (WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0]).label,
+    widthIcon: { normal: 'width', wide: 'width_wide', wider: 'width_full' }[widthMode] || 'width',
+    onWidth: cycleWidth,
+    canSave: canSave(),
+    onSave: () => onSave(text),
+  } : null;
+
+  return (
+    <div className="app">
+      <TopBar
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        doc={doc}
+        onHome={goHome}
+        library={view === 'library' ? {
+          query,
+          onQuery: setQuery,
+          viewMode,
+          onViewMode: pickViewMode,
+        } : null}
+      />
+
+      {view === 'picker' && (
+        <>
+          <Picker onPickFile={onPickSingleFile} onPickFolder={onPickFolder} />
+          <HistorySection history={historyList} onOpen={onOpenHistory} />
+        </>
+      )}
+
+      {view === 'library' && (
+        <Library
+          key={folder ? folder.name : 'lib'}
+          files={files}
+          cache={cacheRef.current}
+          indexed={indexed}
+          query={query}
+          viewMode={viewMode}
+          onOpen={openEntry}
+        />
+      )}
+
+      {view === 'preview' && (
+        <Preview
+          entry={active}
+          text={text}
+          setText={setText}
+          theme={theme}
+          files={files}
+          mode={mode}
+          onMode={setMode}
+          editorFont={editorFont}
+          widthVar={(WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0]).px}
+        />
+      )}
+
+      {notice && <div className="toast" onClick={() => setNotice('')}>{notice}</div>}
+    </div>
+  );
+}
