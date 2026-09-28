@@ -1,4 +1,8 @@
-# Markdown Previewer
+<p align="center">
+  <img src="public/logo.svg" alt="Markdown Previewer logo" width="120">
+</p>
+
+<h1 align="center">Markdown Previewer</h1>
 
 A browser-based Markdown reader and editor. Open a Markdown file or choose a folder to browse, search, preview, and edit your documents. Files stay on your device; the app does not upload them.
 
@@ -10,6 +14,32 @@ A browser-based Markdown reader and editor. Open a Markdown file or choose a fol
 - Search filenames and document contents in a selected folder; switch between grid and list layouts.
 - Toggle light and dark themes, adjust preview width and editor font, and zoom Mermaid diagrams.
 - Reopen recent files and folders from browser-stored history.
+
+<details>
+<summary>View screenshots</summary>
+
+### Themes
+
+<p align="center">
+  <img src="docs/screenshots/light-mode.png" alt="Markdown Previewer in light theme" width="49%">
+  <img src="docs/screenshots/dark-mode.png" alt="Markdown Previewer in dark theme" width="49%">
+</p>
+
+### Markdown preview
+
+<p align="center">
+  <img src="docs/screenshots/preview-light.png" alt="Markdown document preview in light theme" width="49%">
+  <img src="docs/screenshots/preview-dark.png" alt="Markdown document preview in dark theme" width="49%">
+</p>
+
+### Folder views
+
+<p align="center">
+  <img src="docs/screenshots/folder-grid-view.png" alt="Folder browser in grid view" width="49%">
+  <img src="docs/screenshots/folder-list-view.png" alt="Folder browser in list view" width="49%">
+</p>
+
+</details>
 
 ## Requirements
 

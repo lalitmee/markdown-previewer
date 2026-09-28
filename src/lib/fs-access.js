@@ -68,18 +68,17 @@ export async function listMdFiles(dirHandle) {
   return out;
 }
 
-export async function readImageDataUrl(fileHandle, baseDir, path) {
-  const key = (baseDir ? baseDir + '/' : '') + path;
+export async function readImageDataUrl(folderHandle, baseDir, path) {
+  const parts = resolveRelFrom(baseDir, path);
+  if (!folderHandle || !parts?.length) return null;
+
   try {
-    const h = await fileHandle.getFileHandle(key.toLowerCase());
-    const file = await h.getFile();
-    if (!file.type.startsWith('image/')) return null;
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-      r.readAsDataURL(file);
-    });
+    let directory = folderHandle;
+    for (const part of parts.slice(0, -1)) {
+      directory = await directory.getDirectoryHandle(part);
+    }
+    const imageHandle = await directory.getFileHandle(parts[parts.length - 1]);
+    return readImageDataUrlFromFile(await imageHandle.getFile());
   } catch (_) {
     return null;
   }
@@ -105,21 +104,14 @@ export async function readImageDataUrlFromFile(file) {
  * Replace relative img srcs in rendered html with data URLs read from the
  * folder's file handles. External/data/blob URLs are left untouched.
  */
-export async function inlineImages(html, files, activePath) {
+export async function inlineImages(html, folderHandle, activePath) {
   const container = document.createElement('div');
   container.innerHTML = html;
   const imgs = Array.from(container.querySelectorAll('img'));
   await Promise.all(imgs.map(async (img) => {
     const src = img.getAttribute('src');
-    const rel = resolveRelFrom(dirOf(activePath), src);
-    if (!rel) return;
-    const f = files.find((x) => x.path.toLowerCase() === rel);
-    if (!f) return;
-    try {
-      const file = await f.handle.getFile();
-      const data = await readImageDataUrlFromFile(file);
-      if (data) img.setAttribute('src', data);
-    } catch (_) { /* keep as-is */ }
+    const data = await readImageDataUrl(folderHandle, dirOf(activePath), src);
+    if (data) img.setAttribute('src', data);
   }));
   return container.innerHTML;
 }
@@ -130,14 +122,26 @@ function dirOf(path) {
 }
 
 function resolveRelFrom(baseDir, src) {
-  const clean = String(src || '').split('#')[0].split('?')[0];
-  if (!clean.trim() || /^(https?:|data:|blob:)/i.test(clean)) return null;
-  const parts = (baseDir ? baseDir + '/' + clean : clean).split('/');
+  const clean = String(src || '').split(/[?#]/, 1)[0];
+  if (!clean.trim() || /^(?:[a-z][a-z\d+.-]*:|\/|\\\\)/i.test(clean)) return null;
+
+  let decoded;
+  try {
+    decoded = decodeURIComponent(clean);
+  } catch (_) {
+    return null;
+  }
+
+  const parts = `${baseDir ? baseDir + '/' : ''}${decoded.replace(/\\/g, '/')}`.split('/');
   const out = [];
   for (const p of parts) {
     if (!p || p === '.') continue;
-    if (p === '..') out.pop();
-    else out.push(p);
+    if (p === '..') {
+      if (out.length === 0) return null;
+      out.pop();
+    } else {
+      out.push(p);
+    }
   }
-  return out.join('/').toLowerCase();
+  return out;
 }

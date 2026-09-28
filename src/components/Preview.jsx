@@ -6,7 +6,7 @@ import { renderMarkdown } from '../lib/markdown';
 import { inlineImages } from '../lib/fs-access';
 import ZoomModal from './ZoomModal';
 
-export default function Preview({ entry, text, setText, theme, files, mode, onMode, editorFont, widthVar }) {
+export default function Preview({ entry, text, setText, theme, folderHandle, mode, onMode, editorFont, widthVar }) {
   const [html, setHtml] = useState('');
   const [zoomSvg, setZoomSvg] = useState(null);
 
@@ -17,11 +17,11 @@ export default function Preview({ entry, text, setText, theme, files, mode, onMo
     let cancelled = false;
     (async () => {
       const rendered = await renderMarkdown(text, theme);
-      const inlined = await inlineImages(rendered, files, entry ? entry.path : '');
+      const inlined = await inlineImages(rendered, folderHandle, entry ? entry.path : '');
       if (!cancelled) setHtml(inlined);
     })();
     return () => { cancelled = true; };
-  }, [text, theme, entry, files]);
+  }, [text, theme, entry, folderHandle]);
 
   function onBodyClick(e) {
     const diagram = e.target.closest('.mdiagram');

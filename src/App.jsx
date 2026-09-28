@@ -114,6 +114,8 @@ export default function App() {
     if (!handle) return;
     const t = await readFileText(handle);
     persistHistory(handle);
+    setFolder(null);
+    setFiles([]);
     cacheRef.current.set(handle.name, t);
     setActive({ name: handle.name, path: handle.name, handle });
     setText(t);
@@ -131,6 +133,8 @@ export default function App() {
     if (h.kind === 'directory') {
       await loadFolder(h.handle, h.name);
     } else {
+      setFolder(null);
+      setFiles([]);
       setActive({ name: h.name, path: h.name, handle: h.handle });
       setText(await readFileText(h.handle));
       setView('preview');
@@ -222,7 +226,7 @@ export default function App() {
           text={text}
           setText={setText}
           theme={theme}
-          files={files}
+          folderHandle={folder ? folder.handle : null}
           mode={mode}
           onMode={setMode}
           editorFont={editorFont}
