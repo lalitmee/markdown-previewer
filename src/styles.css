@@ -199,6 +199,19 @@ body {
 }
 .card:hover { background: var(--hover); box-shadow: var(--shadow); transform: translateY(-2px); }
 .fname { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-label { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.file-label .fname { flex: 0 1 auto; min-width: 0; }
+.folder-path {
+  flex: 0 1 auto;
+  max-width: 55%;
+  min-width: 0;
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .meta { color: var(--mut); font-size: 12px; }
 .snippet { color: var(--pmut); font-size: 13px; line-height: 1.4; }
 .snippet mark { background: rgba(248, 196, 113, .55); color: inherit; border-radius: 2px; }
@@ -213,7 +226,7 @@ body {
   transition: background .15s, box-shadow .15s, transform .1s;
 }
 .list-row:hover { background: var(--hover); box-shadow: var(--shadow); transform: translateY(-1px); }
-.list-row .fname { flex: 0 1 auto; }
+.list-row .file-label { flex: 0 1 auto; }
 .list-row .meta { flex-shrink: 0; }
 .list-row .snippet { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
