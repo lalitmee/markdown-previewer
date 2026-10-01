@@ -1,16 +1,5 @@
 import { findSnippet, highlightSnippet } from '../lib/search';
 
-function sizeOf(handle) {
-  return formatSize(handle && handle.size);
-}
-
-export function formatSize(bytes) {
-  if (bytes == null || isNaN(bytes)) return '?';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
 function duplicateFolderPaths(files) {
   const groups = new Map();
   for (const file of files) {
@@ -61,10 +50,9 @@ export default function Library({ files, cache, indexed, query, viewMode, onOpen
       title={folderPaths.has(f.path) ? f.path : undefined}
     >
       <span className="file-label">
-        {folderPaths.has(f.path) && <span className="folder-path">{folderPaths.get(f.path)}</span>}
         <span className="fname">{f.name}</span>
+        {folderPaths.has(f.path) && <span className="folder-path">{folderPaths.get(f.path)}</span>}
       </span>
-      <span className="meta">{sizeOf(f.handle)}</span>
       {snip && <span className="snippet" dangerouslySetInnerHTML={{ __html: snip }} />}
     </button>
   );

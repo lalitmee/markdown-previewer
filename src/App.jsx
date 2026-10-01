@@ -127,6 +127,15 @@ export default function App() {
     try { setHistoryList(await history.list()); } catch (_) { /* ignore */ }
   }
 
+  async function onRemoveHistory(entry) {
+    try {
+      await history.remove(entry.name);
+      setHistoryList((rows) => rows.filter((row) => row.name !== entry.name));
+    } catch (_) {
+      setNotice('Could not remove recent item.');
+    }
+  }
+
   async function onOpenHistory(h) {
     const granted = await requestPermission(h.handle);
     if (!granted) { setNotice('Permission denied. Re-pick the folder or file.'); setView('picker'); return; }
@@ -204,7 +213,7 @@ export default function App() {
       {view === 'picker' && (
         <>
           <Picker onPickFile={onPickSingleFile} onPickFolder={onPickFolder} />
-          <HistorySection history={historyList} onOpen={onOpenHistory} />
+          <HistorySection history={historyList} onOpen={onOpenHistory} onRemove={onRemoveHistory} />
         </>
       )}
 

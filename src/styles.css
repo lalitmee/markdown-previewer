@@ -156,24 +156,35 @@ body {
 /* History */
 .history { max-width: 760px; margin: 0 auto; padding: 8px 20px 40px; width: 100%; }
 .history-title { font-size: 15px; font-weight: 500; color: var(--mut); margin: 16px 0 8px; }
-.history-list { display: flex; flex-direction: column; gap: 4px; }
+.history-list { display: flex; flex-direction: column; gap: 6px; }
 .history-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
-  font-family: inherit;
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px;
   border: 1px solid var(--bor);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--card);
-  color: var(--fg);
-  cursor: pointer;
-  font-size: 14px;
-  text-align: left;
-  transition: background .15s, box-shadow .15s, transform .1s;
+  transition: background .15s, box-shadow .15s;
 }
-.history-item:hover { background: var(--hover); box-shadow: var(--shadow); transform: translateY(-1px); }
+.history-item:hover { background: var(--hover); box-shadow: var(--shadow); }
+.history-open {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0; padding: 7px 8px;
+  font-family: inherit; font-size: 14px; text-align: left;
+  border: none; border-radius: 7px; background: transparent; color: var(--fg);
+  cursor: pointer;
+}
+.history-open:focus-visible, .history-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .h-ico { font-size: 18px; }
 .h-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .h-kind { color: var(--mut); font-size: 12px; text-transform: uppercase; }
+.history-remove {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 7px; background: transparent; color: var(--mut);
+  cursor: pointer;
+}
+.history-remove:hover { background: var(--bg); color: var(--fg); }
+.history-remove .material-symbols-outlined { font-size: 18px; }
 
 /* Library */
 .library { flex: 1; padding: 20px 20px 60px; width: 100%; box-sizing: border-box; }
@@ -182,53 +193,48 @@ body {
 
 .file-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
 }
 .card {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px;
   border: 1px solid var(--bor);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--card);
   color: var(--fg);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-  transition: background .15s, box-shadow .15s, transform .1s;
+  transition: background .15s, box-shadow .15s;
 }
-.card:hover { background: var(--hover); box-shadow: var(--shadow); transform: translateY(-2px); }
-.fname { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-label { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
-.file-label .fname { flex: 0 1 auto; min-width: 0; }
+.card:hover { background: var(--hover); box-shadow: var(--shadow); }
+.fname { width: 100%; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; max-width: 100%; }
 .folder-path {
-  flex: 0 1 auto;
-  max-width: 55%;
-  min-width: 0;
+  max-width: 100%;
   color: var(--mut);
   font-size: 12px;
   font-weight: 400;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
-.meta { color: var(--mut); font-size: 12px; }
 .snippet { color: var(--pmut); font-size: 13px; line-height: 1.4; }
 .snippet mark { background: rgba(248, 196, 113, .55); color: inherit; border-radius: 2px; }
 
-.list-view { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.list-view { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
 .list-row {
-  display: flex; align-items: baseline; gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--bor); border-radius: 10px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--bor); border-radius: 8px;
   background: var(--card); color: var(--fg);
   text-align: left; cursor: pointer; font-family: inherit;
-  transition: background .15s, box-shadow .15s, transform .1s;
+  transition: background .15s, box-shadow .15s;
 }
-.list-row:hover { background: var(--hover); box-shadow: var(--shadow); transform: translateY(-1px); }
-.list-row .file-label { flex: 0 1 auto; }
-.list-row .meta { flex-shrink: 0; }
-.list-row .snippet { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-row:hover { background: var(--hover); box-shadow: var(--shadow); }
+.list-row .file-label { flex: 1 1 40%; }
+.list-row .snippet { flex: 1 1 40%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .empty-state { color: var(--mut); text-align: center; padding: 40px 0; }
 

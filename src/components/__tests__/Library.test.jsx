@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import Library from '../Library';
 
 function file(name, path) {
-  return { name, path, handle: { size: 1024 } };
+  return { name, path, handle: {} };
 }
 
 const files = [
@@ -75,5 +75,22 @@ describe('Library duplicate filename locations', () => {
       './README.md',
       'docs/README.md',
     ]);
+  });
+
+  it.each(['grid', 'list'])('keeps long duplicate folder labels intact in %s view and omits unavailable size', (viewMode) => {
+    const container = renderLibrary({
+      viewMode,
+      entries: [
+        file('reference.md', 'project-a/docs/guides/reference.md'),
+        file('reference.md', 'project-b/docs/guides/reference.md'),
+      ],
+    });
+    const buttons = Array.from(container.querySelectorAll('.card, .list-row'));
+
+    expect(buttons.map((button) => button.querySelector('.folder-path').textContent)).toEqual([
+      'project-a/docs/guides/',
+      'project-b/docs/guides/',
+    ]);
+    expect(buttons.every((button) => button.querySelector('.meta') === null)).toBe(true);
   });
 });
