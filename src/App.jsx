@@ -13,6 +13,7 @@ const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation M
 const FONT_KEY = 'mdpv-editor-font';
 const WIDTH_KEY = 'mdpv-width';
 const VIEWMODE_KEY = 'mdpv-viewmode';
+const SCOPE_KEY = 'mdpv-searchscope';
 const FONT_OPTIONS = [
   { label: 'Monospace (default)', value: MONO_STACK },
   { label: 'Menlo', value: 'Menlo, monospace' },
@@ -49,7 +50,9 @@ export default function App() {
   const [editorFont, setEditorFont] = useState(() => loadStored(FONT_KEY, MONO_STACK));
   const [widthMode, setWidthMode] = useState(() => loadStored(WIDTH_KEY, 'normal'));
   const [viewMode, setViewMode] = useState(() => loadStored(VIEWMODE_KEY, 'grid')); // grid | list
+  const [scope, setScope] = useState(() => loadStored(SCOPE_KEY, 'name')); // name | content
   const [query, setQuery] = useState('');
+  const [showRecents, setShowRecents] = useState(false);
   const cacheRef = useRef(new Map());
 
   useEffect(() => {
@@ -76,6 +79,11 @@ export default function App() {
   function pickViewMode(v) {
     setViewMode(v);
     try { localStorage.setItem(VIEWMODE_KEY, v); } catch (_) { /* ignore */ }
+  }
+
+  function pickScope(s) {
+    setScope(s);
+    try { localStorage.setItem(SCOPE_KEY, s); } catch (_) { /* ignore */ }
   }
 
   async function loadFolder(handle, name) {
@@ -209,11 +217,15 @@ export default function App() {
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         doc={doc}
         onHome={goHome}
+        hasRecents={historyList.length > 0}
+        onRecents={() => setShowRecents(true)}
         library={view === 'library' ? {
           query,
           onQuery: setQuery,
           viewMode,
           onViewMode: pickViewMode,
+          scope,
+          onScope: pickScope,
         } : null}
       />
 
@@ -221,9 +233,6 @@ export default function App() {
         <Picker
           onPickFile={onPickSingleFile}
           onPickFolder={onPickFolder}
-          history={historyList}
-          onOpenHistory={onOpenHistory}
-          onRemoveHistory={onRemoveHistory}
         />
       )}
 
@@ -231,9 +240,11 @@ export default function App() {
         <Library
           key={folder ? folder.name : 'lib'}
           files={files}
+          folderName={folder ? folder.name : ''}
           cache={cacheRef.current}
           indexed={indexed}
           query={query}
+          scope={scope}
           viewMode={viewMode}
           onOpen={openEntry}
         />
@@ -252,6 +263,32 @@ export default function App() {
           widthVar={(WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0]).px}
         />
       )}
+
+      {showRecents && (
+        <div className="drawer-backdrop" onClick={() => setShowRecents(false)} aria-hidden="true" />
+      )}
+      <aside className={`recents-drawer ${showRecents ? 'open' : ''}`} aria-label="Recent files and folders">
+        <div className="drawer-header">
+          <h2 className="drawer-title">Recent</h2>
+          <button
+            className="drawer-close"
+            onClick={() => setShowRecents(false)}
+            aria-label="Close recent list"
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <div className="drawer-content">
+          <HistorySection
+            history={historyList}
+            onOpen={(h) => {
+              setShowRecents(false);
+              onOpenHistory(h);
+            }}
+            onRemove={onRemoveHistory}
+          />
+        </div>
+      </aside>
 
       {notice && <div className="toast" onClick={() => setNotice('')}>{notice}</div>}
     </div>

@@ -15,12 +15,14 @@ const files = [
   file('CHANGELOG.md', 'packages/changelog/CHANGELOG.md'),
 ];
 
-function renderLibrary({ viewMode = 'list', entries = files, query = '', cache = new Map() } = {}) {
+function renderLibrary({ viewMode = 'list', entries = files, query = '', scope = 'name', folderName = '', cache = new Map() } = {}) {
   const markup = renderToStaticMarkup(createElement(Library, {
     files: entries,
+    folderName,
     cache,
     indexed: entries.length,
     query,
+    scope,
     viewMode,
     onOpen: () => {},
   }));
@@ -54,6 +56,7 @@ describe('Library duplicate filename locations', () => {
   it('keeps folder labels based on the full library when search shows one duplicate', () => {
     const container = renderLibrary({
       query: 'needle',
+      scope: 'content',
       cache: new Map([['packages/api/README.md', 'needle']]),
     });
     const buttons = Array.from(container.querySelectorAll('.list-row'));
@@ -92,5 +95,48 @@ describe('Library duplicate filename locations', () => {
       'project-b/docs/guides/',
     ]);
     expect(buttons.every((button) => button.querySelector('.meta') === null)).toBe(true);
+  });
+});
+
+describe('Library folder crumb', () => {
+  it('shows the folder name with a folder icon when a folder is loaded', () => {
+    const container = renderLibrary({ folderName: 'my-notes' });
+    const crumb = container.querySelector('.result-count .crumb');
+
+    expect(crumb.querySelector('.crumb-ico').textContent).toBe('folder');
+    expect(crumb.textContent).toContain('my-notes');
+    expect(container.querySelector('.result-count').textContent).toContain('my-notes · 5 files');
+  });
+
+  it('omits the crumb when no folder name is given', () => {
+    const container = renderLibrary();
+
+    expect(container.querySelector('.crumb')).toBeNull();
+    expect(container.querySelector('.result-count').textContent).toBe('5 files');
+  });
+});
+
+describe('Library search scope', () => {
+  const entries = [file('notes.md', 'notes.md'), file('readme.md', 'docs/readme.md')];
+  const cache = new Map([
+    ['notes.md', 'needle in the body'],
+    ['docs/readme.md', 'nothing relevant'],
+  ]);
+
+  it('keeps only filename hits in name scope', () => {
+    const container = renderLibrary({ entries, cache, query: 'readme' });
+    const buttons = Array.from(container.querySelectorAll('.list-row'));
+
+    expect(buttons.map(displayedLabel)).toEqual(['readme.md']);
+    expect(buttons[0].querySelector('.snippet')).toBeNull();
+    expect(buttons[0].querySelector('.fname mark').textContent).toBe('readme');
+  });
+
+  it('keeps only body hits in content scope', () => {
+    const container = renderLibrary({ entries, cache, query: 'needle', scope: 'content' });
+    const buttons = Array.from(container.querySelectorAll('.list-row'));
+
+    expect(buttons.map(displayedLabel)).toEqual(['notes.md']);
+    expect(buttons[0].querySelector('.snippet mark').textContent).toBe('needle');
   });
 });

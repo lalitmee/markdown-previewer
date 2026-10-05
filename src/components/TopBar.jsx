@@ -1,4 +1,13 @@
-export default function TopBar({ theme, onToggleTheme, doc, onHome, library }) {
+import { useRef } from 'react';
+
+export default function TopBar({ theme, onToggleTheme, doc, onHome, hasRecents, onRecents, library }) {
+  const searchRef = useRef(null);
+
+  function clearSearch() {
+    library?.onQuery('');
+    searchRef.current?.focus();
+  }
+
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -17,14 +26,49 @@ export default function TopBar({ theme, onToggleTheme, doc, onHome, library }) {
       </div>
 
       {library && (
-        <div className="topbar-search">
-          <span className="material-symbols-outlined search-ico">search</span>
-          <input
-            value={library.query}
-            onChange={(e) => library.onQuery(e.target.value)}
-            placeholder="Search files and content…"
-            aria-label="Search files and content"
-          />
+        <div className="search-group">
+          <div className="topbar-search">
+            <span className="material-symbols-outlined search-ico">search</span>
+            <input
+              ref={searchRef}
+              value={library.query}
+              onChange={(e) => library.onQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && library.query) {
+                  e.preventDefault();
+                  clearSearch();
+                }
+              }}
+              placeholder={library.scope === 'content' ? 'Search file content…' : 'Search file names…'}
+              aria-label={library.scope === 'content' ? 'Search file content' : 'Search file names'}
+            />
+            {library.query && (
+              <button
+                className="search-clear"
+                onClick={clearSearch}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+            )}
+          </div>
+          <div className="view-toggle" role="group" aria-label="Search scope">
+            <button
+              className={library.scope === 'content' ? '' : 'active'}
+              onClick={() => library.onScope('name')}
+              title="Search file names"
+              aria-label="Search file names"
+              aria-pressed={library.scope !== 'content'}
+            ><span className="material-symbols-outlined">title</span></button>
+            <button
+              className={library.scope === 'content' ? 'active' : ''}
+              onClick={() => library.onScope('content')}
+              title="Search file content"
+              aria-label="Search file content"
+              aria-pressed={library.scope === 'content'}
+            ><span className="material-symbols-outlined">article</span></button>
+          </div>
         </div>
       )}
 
@@ -76,6 +120,16 @@ export default function TopBar({ theme, onToggleTheme, doc, onHome, library }) {
         {doc && doc.canSave && doc.mode === 'edit' && (
           <button className="btn primary icon-btn" onClick={doc.onSave} title="Save" aria-label="Save">
             <span className="material-symbols-outlined">save</span>
+          </button>
+        )}
+        {hasRecents && (
+          <button
+            className="btn secondary icon-btn"
+            onClick={onRecents}
+            title="Recent files and folders"
+            aria-label="Recent files and folders"
+          >
+            <span className="material-symbols-outlined">history</span>
           </button>
         )}
         <button

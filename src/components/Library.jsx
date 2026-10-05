@@ -1,4 +1,4 @@
-import { findSnippet, highlightSnippet } from '../lib/search';
+import { escapeHtml, findSnippet, highlightSnippet } from '../lib/search';
 
 function duplicateFolderPaths(files) {
   const groups = new Map();
@@ -34,15 +34,13 @@ function duplicateFolderPaths(files) {
   return paths;
 }
 
-export default function Library({ files, cache, indexed, query, viewMode, onOpen }) {
+export default function Library({ files, folderName, cache, indexed, query, scope, viewMode, onOpen }) {
   const folderPaths = duplicateFolderPaths(files);
   const q = (query || '').trim().toLowerCase();
-  const shown = q ? files.filter((f) => {
-    const t = cache.get(f.path) || '';
-    return f.name.toLowerCase().includes(q) || t.toLowerCase().includes(q);
-  }) : files;
+  const byName = scope !== 'content';
+  const shown = q ? files.filter((f) => (byName ? f.name : cache.get(f.path) || '').toLowerCase().includes(q)) : files;
 
-  const body = (f, snip) => (
+  const body = (f, name, snip) => (
     <button
       key={f.path}
       className={viewMode === 'list' ? 'list-row' : 'card'}
@@ -50,7 +48,7 @@ export default function Library({ files, cache, indexed, query, viewMode, onOpen
       title={folderPaths.has(f.path) ? f.path : undefined}
     >
       <span className="file-label">
-        <span className="fname">{f.name}</span>
+        <span className="fname" dangerouslySetInnerHTML={{ __html: name }} />
         {folderPaths.has(f.path) && <span className="folder-path">{folderPaths.get(f.path)}</span>}
       </span>
       {snip && <span className="snippet" dangerouslySetInnerHTML={{ __html: snip }} />}
@@ -60,6 +58,13 @@ export default function Library({ files, cache, indexed, query, viewMode, onOpen
   return (
     <main className="library">
       <p className="result-count">
+        {folderName && (
+          <span className="crumb">
+            <span className="material-symbols-outlined crumb-ico" aria-hidden="true">folder</span>
+            {folderName}
+          </span>
+        )}
+        {folderName && ' · '}
         {indexed != null && indexed < files.length
           ? `Indexing… ${indexed}/${files.length}`
           : `${files.length} files`}
@@ -68,8 +73,11 @@ export default function Library({ files, cache, indexed, query, viewMode, onOpen
       <div className={viewMode === 'list' ? 'list-view' : 'file-grid'}>
         {shown.map((f) => {
           const t = cache.get(f.path) || '';
-          const snip = q ? highlightSnippet(findSnippet(t, q), q) : '';
-          return body(f, snip);
+          const snip = q && !byName ? highlightSnippet(findSnippet(t, q), q) : '';
+          const name = q && f.name.toLowerCase().includes(q)
+            ? highlightSnippet(f.name, q)
+            : escapeHtml(f.name);
+          return body(f, name, snip);
         })}
       </div>
       {!shown.length && <p className="empty-state">No markdown files found.</p>}
