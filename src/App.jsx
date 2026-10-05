@@ -97,6 +97,12 @@ export default function App() {
   async function openEntry(entry) {
     const t = cacheRef.current.get(entry.path) ?? await readFileText(entry.handle);
     if (!cacheRef.current.has(entry.path)) cacheRef.current.set(entry.path, t);
+    if (folder) {
+      const location = folder.name + (entry.path ? '/' + entry.path : '');
+      persistHistory(entry.handle, location);
+    } else {
+      persistHistory(entry.handle);
+    }
     setActive(entry);
     setText(t);
     setView('preview');
@@ -122,8 +128,8 @@ export default function App() {
     setView('preview');
   }
 
-  async function persistHistory(handle) {
-    try { await history.add(handle); } catch (_) { /* persistence is best-effort */ }
+  async function persistHistory(handle, location) {
+    try { await history.add(handle, location); } catch (_) { /* persistence is best-effort */ }
     try { setHistoryList(await history.list()); } catch (_) { /* ignore */ }
   }
 
@@ -146,6 +152,7 @@ export default function App() {
       setFiles([]);
       setActive({ name: h.name, path: h.name, handle: h.handle });
       setText(await readFileText(h.handle));
+      persistHistory(h.handle, h.location);
       setView('preview');
     }
   }
@@ -211,10 +218,13 @@ export default function App() {
       />
 
       {view === 'picker' && (
-        <>
-          <Picker onPickFile={onPickSingleFile} onPickFolder={onPickFolder} />
-          <HistorySection history={historyList} onOpen={onOpenHistory} onRemove={onRemoveHistory} />
-        </>
+        <Picker
+          onPickFile={onPickSingleFile}
+          onPickFolder={onPickFolder}
+          history={historyList}
+          onOpenHistory={onOpenHistory}
+          onRemoveHistory={onRemoveHistory}
+        />
       )}
 
       {view === 'library' && (

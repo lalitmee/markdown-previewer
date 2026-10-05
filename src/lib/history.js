@@ -45,11 +45,11 @@ export function createHistory() {
       }
     },
 
-    async add(handle) {
+    async add(handle, location) {
       if (!handle || !handle.name) return;
       const rows = await this.list();
       const rest = rows.filter((e) => e.name !== handle.name);
-      rest.unshift({ name: handle.name, kind: handle.kind || 'file', handle, rank: Date.now() });
+      rest.unshift({ name: handle.name, kind: handle.kind || 'file', handle, rank: Date.now(), location });
       const want = rest.slice(0, HISTORY_LIMIT);
       await run('readwrite', (store) => store.clear());
       for (const e of want) await run('readwrite', (store) => store.put(e));
