@@ -2,6 +2,15 @@ export const HISTORY_LIMIT = 20;
 const DB_NAME = 'mdpv-history';
 const STORE = 'entries';
 
+// Date.now() collides when two entries are added in the same millisecond, and the
+// list() sort is not a total order on rank — a tie falls back to IndexedDB's
+// alphabetical key order. Nudge the rank so every add is strictly newer.
+let lastRank = 0;
+function nextRank() {
+  lastRank = Math.max(Date.now(), lastRank + 1);
+  return lastRank;
+}
+
 function openDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
@@ -49,7 +58,7 @@ export function createHistory() {
       if (!handle || !handle.name) return;
       const rows = await this.list();
       const rest = rows.filter((e) => e.name !== handle.name);
-      rest.unshift({ name: handle.name, kind: handle.kind || 'file', handle, rank: Date.now(), location });
+      rest.unshift({ name: handle.name, kind: handle.kind || 'file', handle, rank: nextRank(), location });
       const want = rest.slice(0, HISTORY_LIMIT);
       await run('readwrite', (store) => store.clear());
       for (const e of want) await run('readwrite', (store) => store.put(e));

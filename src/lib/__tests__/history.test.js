@@ -19,6 +19,12 @@ describe('history store', () => {
     expect(list.map((e) => e.name)).toEqual(['two', 'one']);
   });
 
+  it('orders rapid adds newest first even within the same millisecond', async () => {
+    for (const name of ['one', 'two', 'three', 'four']) await store.add(fakeHandle(name));
+    const list = await store.list();
+    expect(list.map((e) => e.name)).toEqual(['four', 'three', 'two', 'one']);
+  });
+
   it('dedupes by name and moves the existing entry to the front', async () => {
     await store.add(fakeHandle('a'));
     await store.add(fakeHandle('b'));
