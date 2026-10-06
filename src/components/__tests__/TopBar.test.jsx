@@ -29,3 +29,24 @@ describe('TopBar search', () => {
       .toBe('Search file content');
   });
 });
+
+describe('TopBar settings', () => {
+  it('does not render a settings button without onSettings', () => {
+    expect(renderTopBar().querySelector('.settings-btn')).toBeNull();
+  });
+
+  it('renders a labeled settings button when onSettings is provided', () => {
+    const markup = renderToStaticMarkup(createElement(TopBar, {
+      theme: 'light',
+      onToggleTheme: () => {},
+      doc: null,
+      onHome: () => {},
+      onSettings: () => {},
+    }));
+    const container = document.createElement('div');
+    container.innerHTML = markup;
+    const btn = container.querySelector('.settings-btn');
+    expect(btn).not.toBeNull();
+    expect(btn.getAttribute('aria-label')).toBe('Settings');
+  });
+});

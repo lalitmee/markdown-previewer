@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-export default function TopBar({ theme, onToggleTheme, doc, onHome, hasRecents, onRecents, library }) {
+export default function TopBar({ doc, onHome, hasRecents, onRecents, library, onSettings }) {
   const searchRef = useRef(null);
 
   function clearSearch() {
@@ -132,14 +132,16 @@ export default function TopBar({ theme, onToggleTheme, doc, onHome, hasRecents, 
             <span className="material-symbols-outlined">history</span>
           </button>
         )}
-        <button
-          className="btn icon-btn"
-          onClick={onToggleTheme}
-          title="Toggle theme"
-          aria-label="Toggle theme"
-        >
-          <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-        </button>
+        {onSettings && (
+          <button
+            className="settings-btn btn icon-btn"
+            onClick={onSettings}
+            title="Settings"
+            aria-label="Settings"
+          >
+            <span className="material-symbols-outlined">settings</span>
+          </button>
+        )}
       </div>
     </header>
   );

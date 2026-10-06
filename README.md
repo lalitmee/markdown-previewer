@@ -12,8 +12,9 @@ A browser-based Markdown reader and editor. Open a Markdown file or choose a fol
 - Preview GitHub-Flavored Markdown, syntax-highlighted code blocks, and Mermaid diagrams.
 - Edit in a split editor/preview view and save changes back to the selected file.
 - Search filenames and document contents in a selected folder; switch between grid and list layouts.
-- Toggle light and dark themes, adjust preview width and editor font, and zoom Mermaid diagrams.
+- Choose system, light, or dark theme and a custom accent color (presets or a free color picker), adjust preview width and editor font, and zoom Mermaid diagrams.
 - Reopen recent files and folders from browser-stored history.
+- Hide files and folders from browsing by name or regex patterns (e.g. `node_modules` and `.git` by default), configurable in Settings.
 
 <details>
 <summary>View screenshots</summary>

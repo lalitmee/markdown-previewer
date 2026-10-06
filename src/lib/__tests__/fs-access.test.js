@@ -1,6 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
-import { inlineImages } from '../fs-access';
+import { inlineImages, listMdFiles } from '../fs-access';
 import { renderMarkdown } from '../markdown';
+
+function mdFile(name) {
+  return { kind: 'file', name };
+}
+
+function mdDir(name, entries) {
+  const handle = { kind: 'directory', name, values: vi.fn() };
+  handle.values.mockImplementation(async function* () {
+    for (const entry of entries) yield entry;
+  });
+  return handle;
+}
 
 function directory(directories = {}, files = {}) {
   return {
@@ -94,5 +106,56 @@ describe('inlineImages', () => {
 
     expect(html).toContain('src="../../outside.png"');
     expect(folderHandle.getDirectoryHandle).not.toHaveBeenCalled();
+  });
+});
+
+describe('listMdFiles', () => {
+  it('lists markdown files sorted by path when no rules are given', async () => {
+    const root = mdDir('', [
+      mdFile('b.md'),
+      mdFile('notes.txt'),
+      mdDir('docs', [mdFile('a.md')]),
+    ]);
+
+    const files = await listMdFiles(root);
+    expect(files.map((f) => f.path)).toEqual(['b.md', 'docs/a.md']);
+  });
+
+  it('prunes excluded directories without descending into them', async () => {
+    const nodeModules = mdDir('node_modules', [mdFile('dep.md')]);
+    const root = mdDir('', [
+      nodeModules,
+      mdDir('docs', [mdFile('a.md')]),
+    ]);
+
+    const files = await listMdFiles(root, [{ type: 'name', value: 'node_modules' }]);
+    expect(files.map((f) => f.path)).toEqual(['docs/a.md']);
+    expect(nodeModules.values).not.toHaveBeenCalled();
+  });
+
+  it('prunes directories excluded by a path regex', async () => {
+    const secret = mdDir('private', [mdFile('key.md')]);
+    const root = mdDir('', [
+      mdDir('docs', [secret, mdFile('public.md')]),
+    ]);
+
+    const files = await listMdFiles(root, [{ type: 'regex', value: '^docs/private' }]);
+    expect(files.map((f) => f.path)).toEqual(['docs/public.md']);
+    expect(secret.values).not.toHaveBeenCalled();
+  });
+
+  it('skips files matched by rules while keeping the rest', async () => {
+    const root = mdDir('', [
+      mdFile('guide.md'),
+      mdFile('guide.draft.md'),
+      mdFile('private.md'),
+    ]);
+    const rules = [
+      { type: 'name', value: 'private.md' },
+      { type: 'regex', value: '\\.draft\\.md$' },
+    ];
+
+    const files = await listMdFiles(root, rules);
+    expect(files.map((f) => f.path)).toEqual(['guide.md']);
   });
 });

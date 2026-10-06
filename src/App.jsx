@@ -4,16 +4,21 @@ import Picker from './components/Picker';
 import Library from './components/Library';
 import Preview from './components/Preview';
 import HistorySection from './components/HistorySection';
+import SettingsPage from './components/SettingsPage';
 import { createHistory } from './lib/history';
+import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
+import { contrastForeground } from './lib/accent';
 import { isFsaSupported, pickSingleFile, pickFolder, requestPermission, listMdFiles, readFileText, saveFileText } from './lib/fs-access';
 
 const history = createHistory();
 const THEME_KEY = 'mdpv-theme';
+const ACCENT_KEY = 'mdpv-accent';
 const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 const FONT_KEY = 'mdpv-editor-font';
 const WIDTH_KEY = 'mdpv-width';
 const VIEWMODE_KEY = 'mdpv-viewmode';
 const SCOPE_KEY = 'mdpv-searchscope';
+const EXCLUDES_KEY = 'mdpv-excludes';
 const FONT_OPTIONS = [
   { label: 'Monospace (default)', value: MONO_STACK },
   { label: 'Menlo', value: 'Menlo, monospace' },
@@ -36,8 +41,15 @@ function loadStored(key, fallback) {
   try { return localStorage.getItem(key) || fallback; } catch (_) { return fallback; }
 }
 
+function loadExcludes() {
+  const raw = loadStored(EXCLUDES_KEY, '');
+  if (!raw) return DEFAULT_EXCLUDES;
+  return parseRules(raw);
+}
+
 export default function App() {
   const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'light'));
+  const [accent, setAccent] = useState(() => loadStored(ACCENT_KEY, '') || null);
   const [view, setView] = useState('picker'); // picker | library | preview
   const [folder, setFolder] = useState(null);   // { name, handle }
   const [files, setFiles] = useState([]);
@@ -51,14 +63,35 @@ export default function App() {
   const [widthMode, setWidthMode] = useState(() => loadStored(WIDTH_KEY, 'normal'));
   const [viewMode, setViewMode] = useState(() => loadStored(VIEWMODE_KEY, 'grid')); // grid | list
   const [scope, setScope] = useState(() => loadStored(SCOPE_KEY, 'name')); // name | content
+  const [excludes, setExcludes] = useState(loadExcludes);
   const [query, setQuery] = useState('');
   const [showRecents, setShowRecents] = useState(false);
   const cacheRef = useRef(new Map());
+  const settingsReturnRef = useRef('picker');
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      document.documentElement.dataset.theme =
+        theme === 'system' ? (mq.matches ? 'dark' : 'light') : theme;
+    };
+    apply();
     localStorage.setItem(THEME_KEY, theme);
+    if (theme === 'system') mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, [theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (accent) {
+      root.style.setProperty('--accent', accent);
+      root.style.setProperty('--accent-fg', contrastForeground(accent));
+    } else {
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--accent-fg');
+    }
+    try { localStorage.setItem(ACCENT_KEY, accent || ''); } catch (_) { /* ignore */ }
+  }, [accent]);
 
   useEffect(() => { history.list().then(setHistoryList); }, []);
 
@@ -86,9 +119,28 @@ export default function App() {
     try { localStorage.setItem(SCOPE_KEY, s); } catch (_) { /* ignore */ }
   }
 
+  function openSettings() {
+    if (view !== 'settings') settingsReturnRef.current = view;
+    setView('settings');
+  }
+
+  function closeSettings() {
+    setView(settingsReturnRef.current);
+  }
+
+  async function applyExcludes(next) {
+    setExcludes(next);
+    try { localStorage.setItem(EXCLUDES_KEY, JSON.stringify(next)); } catch (_) { /* ignore */ }
+    if (folder && folder.handle) {
+      try {
+        setFiles(await listMdFiles(folder.handle, next));
+      } catch (_) { /* keep current list if the rescan fails */ }
+    }
+  }
+
   async function loadFolder(handle, name) {
     cacheRef.current = new Map();
-    const md = await listMdFiles(handle);
+    const md = await listMdFiles(handle, excludes);
     setFolder({ name, handle });
     setFiles(md);
     setActive(null);
@@ -213,12 +265,11 @@ export default function App() {
   return (
     <div className="app">
       <TopBar
-        theme={theme}
-        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         doc={doc}
         onHome={goHome}
         hasRecents={historyList.length > 0}
         onRecents={() => setShowRecents(true)}
+        onSettings={view === 'settings' ? null : openSettings}
         library={view === 'library' ? {
           query,
           onQuery: setQuery,
@@ -247,6 +298,20 @@ export default function App() {
           scope={scope}
           viewMode={viewMode}
           onOpen={openEntry}
+        />
+      )}
+
+      {view === 'settings' && (
+        <SettingsPage
+          rules={excludes}
+          theme={theme}
+          accent={accent}
+          onThemeSelect={setTheme}
+          onAccentSelect={setAccent}
+          onAdd={(rule) => applyExcludes([...excludes, rule])}
+          onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
+          onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
+          onBack={closeSettings}
         />
       )}
 

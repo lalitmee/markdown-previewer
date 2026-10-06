@@ -1,4 +1,5 @@
 import { isMarkdownName } from './search';
+import { shouldExclude } from './excludes';
 
 export function isFsaSupported() {
   return typeof window !== 'undefined' &&
@@ -51,11 +52,12 @@ export async function readFileText(handle) {
   return readHandleFile(handle);
 }
 
-export async function listMdFiles(dirHandle) {
+export async function listMdFiles(dirHandle, rules = []) {
   const out = [];
   async function walk(dir, prefix) {
     for await (const entry of dir.values()) {
       const path = prefix ? prefix + '/' + entry.name : entry.name;
+      if (shouldExclude(path, rules)) continue;
       if (entry.kind === 'file') {
         if (isMarkdownName(entry.name)) out.push({ name: entry.name, path, handle: entry });
       } else if (entry.kind === 'directory') {
