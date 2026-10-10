@@ -763,6 +763,21 @@ body {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  /* A table can outgrow the preview once a column is widened. Keep the
+     horizontal scrollbar visible (macOS hides overlay scrollbars) so the
+     overflow is discoverable and the last column's handle stays reachable. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--pbor) transparent;
+}
+.md-body .mp-table-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.md-body .mp-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--pbor);
+  border-radius: 5px;
+}
+.md-body .mp-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 .md-body table.mp-table {
   table-layout: fixed;

@@ -64,7 +64,28 @@ export default function Preview({ entry, text, setText, theme, folderHandle, mod
     });
     const startW = freeze[c] ?? handle.parentElement.getBoundingClientRect().width;
     setTableState((s) => setColumnWidths(s, t, freeze));
-    const onMove = (ev) => setTableState((s) => setColumnWidth(s, t, c, startW + (ev.clientX - startX)));
+    // The table can grow wider than the pane; the scroll box clips it, which
+    // would hide the dragged handle. While resizing, keep that handle in view:
+    // pin the scroll to the right when dragging the last visible column (the
+    // reported case), and otherwise nudge the scroll as the pointer nears an edge.
+    const scroller = handle.closest('.mp-table-scroll');
+    const ths = Array.from(handle.closest('table').querySelectorAll('thead th'));
+    const isLast = ths.filter((th) => !th.classList.contains('mp-col-hidden')).pop() === handle.closest('th');
+    const onMove = (ev) => {
+      setTableState((s) => setColumnWidth(s, t, c, startW + (ev.clientX - startX)));
+      // React commits the new width after this handler, so adjust the scroll on
+      // the next frame (when scrollWidth reflects it) to keep the handle in view.
+      requestAnimationFrame(() => {
+        if (!scroller) return;
+        if (isLast) {
+          scroller.scrollLeft = scroller.scrollWidth;
+          return;
+        }
+        const r = scroller.getBoundingClientRect();
+        if (ev.clientX > r.right - 28) scroller.scrollLeft += 6;
+        else if (ev.clientX < r.left + 28) scroller.scrollLeft -= 6;
+      });
+    };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
