@@ -36,6 +36,8 @@ A browser-based Markdown reader and editor. Open a Markdown file or choose a fol
 - Mermaid diagrams — fenced, bare, or inside unlabeled code fences — that follow the active theme; click any diagram to zoom it.
 - Relative image references (e.g. `![](images/photo.png)`) resolve against the containing folder, so local images render without a server.
 - Cursor-style plan documents (`name` / `overview` / `todos` with status) render as a styled checklist.
+- Resizable table columns — drag a header's right edge to widen or narrow a column, so you can focus on the ones that matter.
+- Collapsible columns — hide a column and it folds into a slim rail on the right edge of the table; click its chip to bring it back. Nothing is removed from the Markdown.
 - Split editor/preview editing with 10 editor fonts; save changes back to the original file.
 
 ### Personalize
@@ -54,6 +56,7 @@ A browser-based Markdown reader and editor. Open a Markdown file or choose a fol
 2. Select a document to preview it. In a folder library, use the search field to find text in filenames or document contents (content matches show a snippet of the line).
 3. Use the edit/preview control to switch to a split editor and preview. Select **Save** to write changes to the original file when the browser grants write access.
 4. Use the toolbar to switch between preview and edit modes, change library layout, editor font, or preview width. Choose a theme and accent color in Settings. Click Mermaid diagrams to zoom them.
+5. In a rendered table, drag a header's right edge to resize its column (the other columns adjust to fit). Click the hide (eye-off) icon on a header to hide that column; reopen it from the chip on the table's right-side rail.
 
 ## Requirements
 

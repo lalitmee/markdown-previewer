@@ -752,6 +752,92 @@ body {
 .md-body th {
   background: var(--pcode);
 }
+/* Resizable, collapsible table columns */
+.md-body .mp-table-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 12px 0;
+}
+.md-body .mp-table-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.md-body table.mp-table {
+  table-layout: fixed;
+  margin: 0;
+}
+.md-body .mp-th {
+  position: relative;
+}
+.md-body .mp-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+.md-body .mp-resize:hover {
+  background: var(--plink);
+  opacity: 0.4;
+}
+.md-body .mp-hide {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--pmut);
+  cursor: pointer;
+  opacity: 0;
+}
+.md-body .mp-th:hover .mp-hide {
+  opacity: 1;
+}
+.md-body .mp-hide:hover {
+  background: var(--hover);
+  color: var(--pfg);
+}
+.md-body .mp-hide .material-symbols-outlined {
+  font-size: 16px;
+}
+.md-body .mp-col-hidden {
+  display: none;
+}
+.md-body .mp-col-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.md-body .mp-col-rail:empty {
+  display: none;
+}
+.md-body .mp-chip {
+  writing-mode: vertical-rl;
+  padding: 8px 4px;
+  border: 1px solid var(--pbor);
+  border-radius: 4px;
+  background: var(--pcode);
+  color: var(--pmut);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.md-body .mp-chip:hover {
+  border-color: var(--plink);
+  color: var(--pfg);
+}
 .md-body img {
   max-width: 100%;
   border-radius: 6px;
