@@ -10,8 +10,10 @@ function render(props = {}) {
     rules: [],
     theme: 'light',
     accent: null,
+    historyLimit: 20,
     onThemeSelect: () => {},
     onAccentSelect: () => {},
+    onHistoryLimitSelect: () => {},
     onAdd: () => {},
     onRemove: () => {},
     onReset: () => {},
@@ -26,6 +28,13 @@ function container(html) {
 }
 
 describe('SettingsPage', () => {
+  it('offers the supported recent-item limits and selects the current value', () => {
+    const c = container(render({ historyLimit: 10 }));
+    const select = c.querySelector('[aria-label="Recent items limit"]');
+    expect(Array.from(select.options, (option) => option.value)).toEqual(['5', '10', '20', '50']);
+    expect(select.value).toBe('10');
+  });
+
   it('renders no in-card back button, plus input and type toggle (Enter adds, no Add button)', () => {
     const c = container(render());
     expect(c.querySelector('[aria-label="Back"]')).toBeNull();

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { validateDraft } from '../lib/excludes';
 import { ACCENT_PRESETS } from '../lib/accent';
 
-export default function SettingsPage({ rules, theme, accent, onThemeSelect, onAccentSelect, onAdd, onRemove, onReset }) {
+export default function SettingsPage({ rules, theme, accent, historyLimit = 20, onThemeSelect, onAccentSelect, onHistoryLimitSelect, onAdd, onRemove, onReset }) {
   const [draft, setDraft] = useState('');
   const [type, setType] = useState('name'); // name | regex
   const [error, setError] = useState('');
@@ -22,9 +22,24 @@ export default function SettingsPage({ rules, theme, accent, onThemeSelect, onAc
       <div className="settings-card">
         <div className="settings-header">
           <h1>Settings</h1>
-        </div>
+      </div>
 
-        <section className="settings-section">
+      <section className="settings-section">
+        <h2>History</h2>
+        <div className="settings-row">
+          <label className="settings-row-label" htmlFor="history-limit">Recent items</label>
+          <select
+            id="history-limit"
+            aria-label="Recent items limit"
+            value={historyLimit}
+            onChange={(e) => onHistoryLimitSelect(Number(e.target.value))}
+          >
+            {[5, 10, 20, 50].map((limit) => <option key={limit} value={limit}>{limit} items</option>)}
+          </select>
+        </div>
+      </section>
+
+      <section className="settings-section">
           <h2>Excluded paths</h2>
           <p className="settings-sub">
             Files and folders matching these rules are hidden from every folder you open.

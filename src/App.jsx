@@ -19,6 +19,8 @@ const WIDTH_KEY = 'mdpv-width';
 const VIEWMODE_KEY = 'mdpv-viewmode';
 const SCOPE_KEY = 'mdpv-searchscope';
 const EXCLUDES_KEY = 'mdpv-excludes';
+const HISTORY_LIMIT_KEY = 'mdpv-history-limit';
+const HISTORY_LIMIT_OPTIONS = [5, 10, 20, 50];
 const FONT_OPTIONS = [
   { label: 'Monospace (default)', value: MONO_STACK },
   { label: 'Menlo', value: 'Menlo, monospace' },
@@ -47,6 +49,11 @@ function loadExcludes() {
   return parseRules(raw);
 }
 
+function loadHistoryLimit() {
+  const limit = Number(loadStored(HISTORY_LIMIT_KEY, '20'));
+  return HISTORY_LIMIT_OPTIONS.includes(limit) ? limit : 20;
+}
+
 export default function App() {
   const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'light'));
   const [accent, setAccent] = useState(() => loadStored(ACCENT_KEY, '') || null);
@@ -54,6 +61,7 @@ export default function App() {
   const [folder, setFolder] = useState(null);   // { name, handle }
   const [files, setFiles] = useState([]);
   const [historyList, setHistoryList] = useState([]);
+  const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
   const [active, setActive] = useState(null);   // { name, path, handle }
   const [text, setText] = useState('');
   const [notice, setNotice] = useState('');
@@ -107,7 +115,10 @@ export default function App() {
     try { localStorage.setItem(ACCENT_KEY, accent || ''); } catch (_) { /* ignore */ }
   }, [accent]);
 
-  useEffect(() => { history.list().then(setHistoryList); }, []);
+  useEffect(() => {
+    history.trim(historyLimit).then(setHistoryList)
+      .catch(() => history.list(historyLimit).then(setHistoryList).catch(() => {}));
+  }, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -219,8 +230,17 @@ export default function App() {
   }
 
   async function persistHistory(handle, location) {
-    try { await history.add(handle, location); } catch (_) { /* persistence is best-effort */ }
-    try { setHistoryList(await history.list()); } catch (_) { /* ignore */ }
+    try { await history.add(handle, location, historyLimit); } catch (_) { /* persistence is best-effort */ }
+    try { setHistoryList(await history.list(historyLimit)); } catch (_) { /* ignore */ }
+  }
+
+  async function pickHistoryLimit(limit) {
+    if (!HISTORY_LIMIT_OPTIONS.includes(limit)) return;
+    setHistoryLimit(limit);
+    try { localStorage.setItem(HISTORY_LIMIT_KEY, String(limit)); } catch (_) { /* ignore */ }
+    try { setHistoryList(await history.trim(limit)); } catch (_) {
+      try { setHistoryList(await history.list(limit)); } catch (_) { /* ignore */ }
+    }
   }
 
   async function onRemoveHistory(entry) {
@@ -337,8 +357,10 @@ export default function App() {
           rules={excludes}
           theme={theme}
           accent={accent}
+          historyLimit={historyLimit}
           onThemeSelect={setTheme}
           onAccentSelect={setAccent}
+          onHistoryLimitSelect={pickHistoryLimit}
           onAdd={(rule) => applyExcludes([...excludes, rule])}
           onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
           onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
