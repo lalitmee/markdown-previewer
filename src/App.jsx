@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
 import Library from './components/Library';
@@ -54,8 +55,22 @@ function loadHistoryLimit() {
   return HISTORY_LIMIT_OPTIONS.includes(limit) ? limit : 20;
 }
 
+function transitionPage(update, direction) {
+  if (typeof document.startViewTransition !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update();
+    return;
+  }
+
+  document.documentElement.dataset.navigation = direction;
+  const transition = document.startViewTransition(() => flushSync(update));
+  transition.finished.then(
+    () => { delete document.documentElement.dataset.navigation; },
+    () => { delete document.documentElement.dataset.navigation; },
+  );
+}
+
 export default function App() {
-  const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'light'));
+  const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'system'));
   const [accent, setAccent] = useState(() => loadStored(ACCENT_KEY, '') || null);
   const [view, setView] = useState(() => window.location.pathname === '/settings' ? 'settings' : 'picker'); // picker | library | preview | settings
   const [folder, setFolder] = useState(null);   // { name, handle }
@@ -87,11 +102,11 @@ export default function App() {
       if (isSettings) {
         if (viewRef.current !== 'settings') settingsReturnRef.current = viewRef.current;
         settingsEntryRef.current = Boolean(window.history.state?.mdpvSettings);
-        setView('settings');
+        transitionPage(() => setView('settings'), 'forward');
       }
       else {
         settingsEntryRef.current = false;
-        setView(settingsReturnRef.current);
+        transitionPage(() => setView(settingsReturnRef.current), 'back');
       }
     }
     window.addEventListener('popstate', onPopState);
@@ -134,16 +149,21 @@ export default function App() {
   }, [notice]);
 
   function goHome() {
+    const wasSettings = viewRef.current === 'settings';
     if (window.location.pathname === '/settings') {
       window.history.replaceState({}, '', '/');
       settingsEntryRef.current = false;
     }
     settingsReturnRef.current = 'picker';
-    setView('picker');
-    setFolder(null);
-    setFiles([]);
-    setActive(null);
-    setQuery('');
+    const update = () => {
+      setView('picker');
+      setFolder(null);
+      setFiles([]);
+      setActive(null);
+      setQuery('');
+    };
+    if (wasSettings) transitionPage(update, 'back');
+    else update();
   }
 
   function pickViewMode(v) {
@@ -164,7 +184,7 @@ export default function App() {
         settingsEntryRef.current = true;
       }
     }
-    setView('settings');
+    transitionPage(() => setView('settings'), 'forward');
   }
 
   function closeSettings() {
@@ -173,7 +193,7 @@ export default function App() {
       window.history.back();
     } else {
       if (window.location.pathname === '/settings') window.history.replaceState({}, '', '/');
-      setView(settingsReturnRef.current);
+      transitionPage(() => setView(settingsReturnRef.current), 'back');
     }
   }
 
@@ -264,9 +284,11 @@ export default function App() {
       if (settingsEntryRef.current && window.location.pathname === '/settings') {
         settingsEntryRef.current = false;
         window.history.back();
-      } else if (window.location.pathname === '/settings') {
-        window.history.replaceState({}, '', '/');
+        return;
       }
+      if (window.location.pathname === '/settings') window.history.replaceState({}, '', '/');
+      transitionPage(() => setView(nextView), 'back');
+      return;
     }
     setView(nextView);
   }

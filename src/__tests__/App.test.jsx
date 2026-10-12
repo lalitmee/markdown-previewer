@@ -39,6 +39,8 @@ beforeEach(() => {
     historyMock.items = historyMock.items.slice(0, limit);
     return historyMock.items;
   });
+  document.documentElement.removeAttribute('data-navigation');
+  document.startViewTransition = undefined;
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -74,6 +76,75 @@ describe('App recent-item limit', () => {
     await act(async () => root.render(createElement(App)));
     await act(async () => host.querySelector('[aria-label="Settings"]').click());
     expect(host.querySelector('[aria-label="Recent items limit"] [aria-pressed="true"]').textContent).toBe('20');
+  });
+
+  it('defaults to the system theme while preserving saved preferences', async () => {
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('[aria-label="Settings"]').click());
+    expect(host.querySelector('[aria-label="System theme"]').getAttribute('aria-pressed')).toBe('true');
+    expect(document.documentElement.dataset.theme).toBe('light');
+
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    window.history.replaceState({}, '', '/');
+    localStorage.setItem('mdpv-theme', 'dark');
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('[aria-label="Settings"]').click());
+    expect(host.querySelector('[aria-label="Dark theme"]').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('uses a whole-page view transition for in-app Settings navigation', async () => {
+    let finish;
+    const finished = new Promise((resolve) => { finish = resolve; });
+    document.startViewTransition = vi.fn((update) => {
+      update();
+      return { finished };
+    });
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('[aria-label="Settings"]').click());
+
+    expect(document.startViewTransition).toHaveBeenCalledOnce();
+    expect(document.documentElement.dataset.navigation).toBe('forward');
+    expect(host.querySelector('main.settings')).not.toBeNull();
+    await act(async () => finish());
+    expect(document.documentElement.dataset.navigation).toBeUndefined();
+  });
+
+  it('does not animate a direct Settings load', async () => {
+    window.history.replaceState({}, '', '/settings');
+    document.startViewTransition = vi.fn();
+    await act(async () => root.render(createElement(App)));
+
+    expect(document.startViewTransition).not.toHaveBeenCalled();
+  });
+
+  it('reverses the whole-page transition when leaving Settings', async () => {
+    window.history.replaceState({}, '', '/settings');
+    let finish;
+    document.startViewTransition = vi.fn((update) => {
+      update();
+      return { finished: new Promise((resolve) => { finish = resolve; }) };
+    });
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('[aria-label="Back to app"]').click());
+
+    expect(document.startViewTransition).toHaveBeenCalledOnce();
+    expect(document.documentElement.dataset.navigation).toBe('back');
+    expect(host.querySelector('.picker')).not.toBeNull();
+    await act(async () => finish());
+  });
+
+  it('skips view transitions when reduced motion is preferred', async () => {
+    window.matchMedia = (query) => ({ matches: query.includes('prefers-reduced-motion'), addEventListener: () => {}, removeEventListener: () => {} });
+    document.startViewTransition = vi.fn((update) => {
+      update();
+      return { finished: Promise.resolve() };
+    });
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('[aria-label="Settings"]').click());
+
+    expect(document.startViewTransition).not.toHaveBeenCalled();
+    expect(host.querySelector('main.settings')).not.toBeNull();
   });
 
   it('discards stale results when limit changes resolve out of order', async () => {
