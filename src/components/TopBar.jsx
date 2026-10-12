@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-export default function TopBar({ doc, onHome, hasRecents, onRecents, library, onSettings }) {
+export default function TopBar({ doc, onHome, hasRecents, onRecents, library, onSettings, settingsActive }) {
   const searchRef = useRef(null);
 
   function clearSearch() {
@@ -136,10 +136,10 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
           <button
             className="settings-btn btn icon-btn"
             onClick={onSettings}
-            title="Settings"
-            aria-label="Settings"
+            title={settingsActive ? 'Back to app' : 'Settings'}
+            aria-label={settingsActive ? 'Back to app' : 'Settings'}
           >
-            <span className="material-symbols-outlined">settings</span>
+            <span className="material-symbols-outlined">{settingsActive ? 'arrow_back' : 'settings'}</span>
           </button>
         )}
       </div>

@@ -50,7 +50,7 @@ function loadExcludes() {
 export default function App() {
   const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'light'));
   const [accent, setAccent] = useState(() => loadStored(ACCENT_KEY, '') || null);
-  const [view, setView] = useState('picker'); // picker | library | preview
+  const [view, setView] = useState(() => window.location.pathname === '/settings' ? 'settings' : 'picker'); // picker | library | preview | settings
   const [folder, setFolder] = useState(null);   // { name, handle }
   const [files, setFiles] = useState([]);
   const [historyList, setHistoryList] = useState([]);
@@ -68,6 +68,20 @@ export default function App() {
   const [showRecents, setShowRecents] = useState(false);
   const cacheRef = useRef(new Map());
   const settingsReturnRef = useRef('picker');
+  const settingsEntryRef = useRef(false);
+
+  useEffect(() => {
+    function onPopState() {
+      const isSettings = window.location.pathname === '/settings';
+      if (isSettings) setView('settings');
+      else {
+        settingsEntryRef.current = false;
+        setView(settingsReturnRef.current);
+      }
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -102,6 +116,10 @@ export default function App() {
   }, [notice]);
 
   function goHome() {
+    if (window.location.pathname === '/settings') {
+      window.history.replaceState({}, '', '/');
+      settingsEntryRef.current = false;
+    }
     setView('picker');
     setFolder(null);
     setFiles([]);
@@ -120,12 +138,24 @@ export default function App() {
   }
 
   function openSettings() {
-    if (view !== 'settings') settingsReturnRef.current = view;
+    if (view !== 'settings') {
+      settingsReturnRef.current = view;
+      if (window.location.pathname !== '/settings') {
+        window.history.pushState({}, '', '/settings');
+        settingsEntryRef.current = true;
+      }
+    }
     setView('settings');
   }
 
   function closeSettings() {
-    setView(settingsReturnRef.current);
+    if (settingsEntryRef.current && window.location.pathname === '/settings') {
+      settingsEntryRef.current = false;
+      window.history.back();
+    } else {
+      if (window.location.pathname === '/settings') window.history.replaceState({}, '', '/');
+      setView(settingsReturnRef.current);
+    }
   }
 
   async function applyExcludes(next) {
@@ -269,7 +299,8 @@ export default function App() {
         onHome={goHome}
         hasRecents={historyList.length > 0}
         onRecents={() => setShowRecents(true)}
-        onSettings={view === 'settings' ? null : openSettings}
+        onSettings={view === 'settings' ? closeSettings : openSettings}
+        settingsActive={view === 'settings'}
         library={view === 'library' ? {
           query,
           onQuery: setQuery,
@@ -311,7 +342,6 @@ export default function App() {
           onAdd={(rule) => applyExcludes([...excludes, rule])}
           onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
           onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
-          onBack={closeSettings}
         />
       )}
 

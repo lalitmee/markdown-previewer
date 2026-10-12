@@ -15,7 +15,6 @@ function render(props = {}) {
     onAdd: () => {},
     onRemove: () => {},
     onReset: () => {},
-    onBack: () => {},
     ...props,
   }));
 }
@@ -27,9 +26,9 @@ function container(html) {
 }
 
 describe('SettingsPage', () => {
-  it('renders a back button, input, and type toggle (Enter adds, no Add button)', () => {
+  it('renders no in-card back button, plus input and type toggle (Enter adds, no Add button)', () => {
     const c = container(render());
-    expect(c.querySelector('[aria-label="Back"]')).not.toBeNull();
+    expect(c.querySelector('[aria-label="Back"]')).toBeNull();
     expect(c.querySelector('input')).not.toBeNull();
     expect(c.querySelector('[aria-label="Name pattern"]')).not.toBeNull();
     expect(c.querySelector('[aria-label="Regex pattern"]')).not.toBeNull();
@@ -119,7 +118,6 @@ describe('SettingsPage', () => {
         onAdd: () => {},
         onRemove: () => {},
         onReset: () => {},
-        onBack: () => {},
       }));
     });
 

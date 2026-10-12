@@ -49,4 +49,16 @@ describe('TopBar settings', () => {
     expect(btn).not.toBeNull();
     expect(btn.getAttribute('aria-label')).toBe('Settings');
   });
+
+  it('keeps the settings action visible and labels it as an exit while settings is active', () => {
+    const markup = renderToStaticMarkup(createElement(TopBar, {
+      doc: null,
+      onHome: () => {},
+      onSettings: () => {},
+      settingsActive: true,
+    }));
+    const container = document.createElement('div');
+    container.innerHTML = markup;
+    expect(container.querySelector('.settings-btn')?.getAttribute('aria-label')).toBe('Back to app');
+  });
 });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { validateDraft } from '../lib/excludes';
 import { ACCENT_PRESETS } from '../lib/accent';
 
-export default function SettingsPage({ rules, theme, accent, onThemeSelect, onAccentSelect, onAdd, onRemove, onReset, onBack }) {
+export default function SettingsPage({ rules, theme, accent, onThemeSelect, onAccentSelect, onAdd, onRemove, onReset }) {
   const [draft, setDraft] = useState('');
   const [type, setType] = useState('name'); // name | regex
   const [error, setError] = useState('');
@@ -21,9 +21,6 @@ export default function SettingsPage({ rules, theme, accent, onThemeSelect, onAc
     <main className="settings">
       <div className="settings-card">
         <div className="settings-header">
-          <button className="btn secondary icon-btn" onClick={onBack} title="Back" aria-label="Back">
-            <span className="material-symbols-outlined">arrow_back</span>
-          </button>
           <h1>Settings</h1>
         </div>
 
