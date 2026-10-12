@@ -70,12 +70,17 @@ export function createHistory() {
 
     async trim(limit = HISTORY_LIMIT) {
       const keep = normalizeLimit(limit);
-      const rows = (await run('readonly', rawList)).sort((a, b) => b.rank - a.rank);
-      const retained = rows.slice(0, keep);
+      const result = { result: [] };
       await run('readwrite', (store) => {
-        for (const entry of rows.slice(keep)) store.delete(entry.name);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const rows = (req.result || []).sort((a, b) => b.rank - a.rank);
+          result.result = rows.slice(0, keep);
+          for (const entry of rows.slice(keep)) store.delete(entry.name);
+        };
+        return result;
       });
-      return retained;
+      return result.result;
     },
 
     async remove(name) {

@@ -50,6 +50,15 @@ describe('history store', () => {
     expect((await store.list()).map((e) => e.name)).toEqual(['newest', 'middle']);
   });
 
+  it('does not return rows deleted by an overlapping trim', async () => {
+    for (const name of ['oldest', 'middle', 'newest']) await store.add(fakeHandle(name));
+
+    const [, returnedByLargerTrim] = await Promise.all([store.trim(1), store.trim(3)]);
+
+    expect((await store.list()).map((e) => e.name)).toEqual(['newest']);
+    expect(returnedByLargerTrim.map((e) => e.name)).toEqual(['newest']);
+  });
+
   it('uses a supplied limit when adding while moving duplicates to the front', async () => {
     for (const name of ['a', 'b', 'c']) await store.add(fakeHandle(name), undefined, 3);
     await store.add(fakeHandle('a', 'file'), undefined, 2);

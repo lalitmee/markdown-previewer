@@ -77,11 +77,18 @@ export default function App() {
   const cacheRef = useRef(new Map());
   const settingsReturnRef = useRef('picker');
   const settingsEntryRef = useRef(false);
+  const viewRef = useRef(view);
+  const historyLimitRequestRef = useRef(0);
+  viewRef.current = view;
 
   useEffect(() => {
     function onPopState() {
       const isSettings = window.location.pathname === '/settings';
-      if (isSettings) setView('settings');
+      if (isSettings) {
+        if (viewRef.current !== 'settings') settingsReturnRef.current = viewRef.current;
+        settingsEntryRef.current = Boolean(window.history.state?.mdpvSettings);
+        setView('settings');
+      }
       else {
         settingsEntryRef.current = false;
         setView(settingsReturnRef.current);
@@ -131,6 +138,7 @@ export default function App() {
       window.history.replaceState({}, '', '/');
       settingsEntryRef.current = false;
     }
+    settingsReturnRef.current = 'picker';
     setView('picker');
     setFolder(null);
     setFiles([]);
@@ -152,7 +160,7 @@ export default function App() {
     if (view !== 'settings') {
       settingsReturnRef.current = view;
       if (window.location.pathname !== '/settings') {
-        window.history.pushState({}, '', '/settings');
+        window.history.pushState({ mdpvSettings: true }, '', '/settings');
         settingsEntryRef.current = true;
       }
     }
@@ -185,7 +193,7 @@ export default function App() {
     setFolder({ name, handle });
     setFiles(md);
     setActive(null);
-    setView('library');
+    transitionView('library');
     setIndexed(0);
     for (let i = 0; i < md.length; i++) {
       const f = md[i];
@@ -236,11 +244,31 @@ export default function App() {
 
   async function pickHistoryLimit(limit) {
     if (!HISTORY_LIMIT_OPTIONS.includes(limit)) return;
+    const request = ++historyLimitRequestRef.current;
     setHistoryLimit(limit);
     try { localStorage.setItem(HISTORY_LIMIT_KEY, String(limit)); } catch (_) { /* ignore */ }
-    try { setHistoryList(await history.trim(limit)); } catch (_) {
-      try { setHistoryList(await history.list(limit)); } catch (_) { /* ignore */ }
+    try {
+      const rows = await history.trim(limit);
+      if (request === historyLimitRequestRef.current) setHistoryList(rows);
+    } catch (_) {
+      try {
+        const rows = await history.list(limit);
+        if (request === historyLimitRequestRef.current) setHistoryList(rows);
+      } catch (_) { /* ignore */ }
     }
+  }
+
+  function transitionView(nextView) {
+    if (viewRef.current === 'settings') {
+      settingsReturnRef.current = nextView;
+      if (settingsEntryRef.current && window.location.pathname === '/settings') {
+        settingsEntryRef.current = false;
+        window.history.back();
+      } else if (window.location.pathname === '/settings') {
+        window.history.replaceState({}, '', '/');
+      }
+    }
+    setView(nextView);
   }
 
   async function onRemoveHistory(entry) {
@@ -254,7 +282,7 @@ export default function App() {
 
   async function onOpenHistory(h) {
     const granted = await requestPermission(h.handle);
-    if (!granted) { setNotice('Permission denied. Re-pick the folder or file.'); setView('picker'); return; }
+    if (!granted) { setNotice('Permission denied. Re-pick the folder or file.'); transitionView('picker'); return; }
     if (h.kind === 'directory') {
       await loadFolder(h.handle, h.name);
     } else {
@@ -263,7 +291,7 @@ export default function App() {
       setActive({ name: h.name, path: h.name, handle: h.handle });
       setText(await readFileText(h.handle));
       persistHistory(h.handle, h.location);
-      setView('preview');
+      transitionView('preview');
     }
   }
 
@@ -279,7 +307,7 @@ export default function App() {
 
   function onBack() {
     setActive(null);
-    setView(folder ? 'library' : 'picker');
+    transitionView(folder ? 'library' : 'picker');
   }
 
   const canSave = () => active && active.handle && typeof active.handle.createWritable === 'function';
