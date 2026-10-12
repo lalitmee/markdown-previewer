@@ -41,6 +41,23 @@ describe('history store', () => {
     expect(list[0].name).toBe('f' + (HISTORY_LIMIT + 4));
   });
 
+  it('trims persisted entries to the newest requested limit', async () => {
+    for (const name of ['oldest', 'middle', 'newest']) await store.add(fakeHandle(name));
+
+    const retained = await store.trim(2);
+
+    expect(retained.map((e) => e.name)).toEqual(['newest', 'middle']);
+    expect((await store.list()).map((e) => e.name)).toEqual(['newest', 'middle']);
+  });
+
+  it('uses a supplied limit when adding while moving duplicates to the front', async () => {
+    for (const name of ['a', 'b', 'c']) await store.add(fakeHandle(name), undefined, 3);
+    await store.add(fakeHandle('a', 'file'), undefined, 2);
+
+    expect((await store.list()).map((e) => e.name)).toEqual(['a', 'c']);
+    expect((await store.list())[0].kind).toBe('file');
+  });
+
   it('removes an entry by name', async () => {
     await store.add(fakeHandle('gone'));
     await store.remove('gone');
