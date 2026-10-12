@@ -29,7 +29,9 @@ function directory(directories = {}, files = {}) {
 
 function imageFileHandle() {
   return {
-    getFile: vi.fn(async () => new Blob(['image bytes'], { type: 'image/png' })),
+    getFile: vi.fn(
+      async () => new Blob(['image bytes'], { type: 'image/png' }),
+    ),
   };
 }
 
@@ -53,15 +55,13 @@ describe('inlineImages', () => {
       '</details>',
     ].join('\n');
     const rendered = await renderMarkdown(markdown);
-    const html = await inlineImages(
-      rendered,
-      folderHandle,
-      'README.md',
-    );
+    const html = await inlineImages(rendered, folderHandle, 'README.md');
 
     const preview = document.createElement('div');
     preview.innerHTML = html;
-    expect(preview.querySelector('img').src).toMatch(/^data:image\/png;base64,/);
+    expect(preview.querySelector('img').src).toMatch(
+      /^data:image\/png;base64,/,
+    );
     expect(folderHandle.getDirectoryHandle).toHaveBeenCalledWith('docs');
     expect(imageHandle.getFile).toHaveBeenCalledOnce();
   });
@@ -123,23 +123,22 @@ describe('listMdFiles', () => {
 
   it('prunes excluded directories without descending into them', async () => {
     const nodeModules = mdDir('node_modules', [mdFile('dep.md')]);
-    const root = mdDir('', [
-      nodeModules,
-      mdDir('docs', [mdFile('a.md')]),
-    ]);
+    const root = mdDir('', [nodeModules, mdDir('docs', [mdFile('a.md')])]);
 
-    const files = await listMdFiles(root, [{ type: 'name', value: 'node_modules' }]);
+    const files = await listMdFiles(root, [
+      { type: 'name', value: 'node_modules' },
+    ]);
     expect(files.map((f) => f.path)).toEqual(['docs/a.md']);
     expect(nodeModules.values).not.toHaveBeenCalled();
   });
 
   it('prunes directories excluded by a path regex', async () => {
     const secret = mdDir('private', [mdFile('key.md')]);
-    const root = mdDir('', [
-      mdDir('docs', [secret, mdFile('public.md')]),
-    ]);
+    const root = mdDir('', [mdDir('docs', [secret, mdFile('public.md')])]);
 
-    const files = await listMdFiles(root, [{ type: 'regex', value: '^docs/private' }]);
+    const files = await listMdFiles(root, [
+      { type: 'regex', value: '^docs/private' },
+    ]);
     expect(files.map((f) => f.path)).toEqual(['docs/public.md']);
     expect(secret.values).not.toHaveBeenCalled();
   });

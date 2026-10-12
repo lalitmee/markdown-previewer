@@ -20,7 +20,8 @@ describe('history store', () => {
   });
 
   it('orders rapid adds newest first even within the same millisecond', async () => {
-    for (const name of ['one', 'two', 'three', 'four']) await store.add(fakeHandle(name));
+    for (const name of ['one', 'two', 'three', 'four'])
+      await store.add(fakeHandle(name));
     const list = await store.list();
     expect(list.map((e) => e.name)).toEqual(['four', 'three', 'two', 'one']);
   });
@@ -35,32 +36,42 @@ describe('history store', () => {
   });
 
   it('caps entries to the LRU limit', async () => {
-    for (let i = 0; i < HISTORY_LIMIT + 5; i++) await store.add(fakeHandle('f' + i));
+    for (let i = 0; i < HISTORY_LIMIT + 5; i++)
+      await store.add(fakeHandle('f' + i));
     const list = await store.list();
     expect(list).toHaveLength(HISTORY_LIMIT);
     expect(list[0].name).toBe('f' + (HISTORY_LIMIT + 4));
   });
 
   it('trims persisted entries to the newest requested limit', async () => {
-    for (const name of ['oldest', 'middle', 'newest']) await store.add(fakeHandle(name));
+    for (const name of ['oldest', 'middle', 'newest'])
+      await store.add(fakeHandle(name));
 
     const retained = await store.trim(2);
 
     expect(retained.map((e) => e.name)).toEqual(['newest', 'middle']);
-    expect((await store.list()).map((e) => e.name)).toEqual(['newest', 'middle']);
+    expect((await store.list()).map((e) => e.name)).toEqual([
+      'newest',
+      'middle',
+    ]);
   });
 
   it('does not return rows deleted by an overlapping trim', async () => {
-    for (const name of ['oldest', 'middle', 'newest']) await store.add(fakeHandle(name));
+    for (const name of ['oldest', 'middle', 'newest'])
+      await store.add(fakeHandle(name));
 
-    const [, returnedByLargerTrim] = await Promise.all([store.trim(1), store.trim(3)]);
+    const [, returnedByLargerTrim] = await Promise.all([
+      store.trim(1),
+      store.trim(3),
+    ]);
 
     expect((await store.list()).map((e) => e.name)).toEqual(['newest']);
     expect(returnedByLargerTrim.map((e) => e.name)).toEqual(['newest']);
   });
 
   it('uses a supplied limit when adding while moving duplicates to the front', async () => {
-    for (const name of ['a', 'b', 'c']) await store.add(fakeHandle(name), undefined, 3);
+    for (const name of ['a', 'b', 'c'])
+      await store.add(fakeHandle(name), undefined, 3);
     await store.add(fakeHandle('a', 'file'), undefined, 2);
 
     expect((await store.list()).map((e) => e.name)).toEqual(['a', 'c']);

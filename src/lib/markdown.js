@@ -6,22 +6,47 @@ import { parsePlan, planToHtml } from './plan';
 let initializedTheme = null;
 
 const DIAGRAM_TYPES = [
-  'flowchart', 'graph', 'sequenceDiagram', 'classDiagram', 'classDiagram-v2',
-  'stateDiagram-v2', 'stateDiagram', 'erDiagram', 'gantt', 'journey', 'pie',
-  'requirementDiagram', 'gitGraph', 'mindmap', 'timeline', 'quadrantChart',
-  'C4Context', 'C4Container', 'C4Component', 'C4Deployment', 'C4Dynamic',
-  'sankey-beta', 'xychart-beta', 'block-beta', 'architecture-beta',
-  'packet-beta', 'kanban',
+  'flowchart',
+  'graph',
+  'sequenceDiagram',
+  'classDiagram',
+  'classDiagram-v2',
+  'stateDiagram-v2',
+  'stateDiagram',
+  'erDiagram',
+  'gantt',
+  'journey',
+  'pie',
+  'requirementDiagram',
+  'gitGraph',
+  'mindmap',
+  'timeline',
+  'quadrantChart',
+  'C4Context',
+  'C4Container',
+  'C4Component',
+  'C4Deployment',
+  'C4Dynamic',
+  'sankey-beta',
+  'xychart-beta',
+  'block-beta',
+  'architecture-beta',
+  'packet-beta',
+  'kanban',
 ];
 const DIAGRAM_TYPE_RE = new RegExp(`^(${DIAGRAM_TYPES.join('|')})\\s`, 'i');
-const DIAGRAM_LINE_RE = /-->|==>|\.->|--x|--o|o--|~~~|->>|:::|\["|\[\{|\[\(|^\s*\w+\s*[\[({]/;
+const DIAGRAM_LINE_RE =
+  /-->|==>|\.->|--x|--o|o--|~~~|->>|:::|\["|\[\{|\[\(|^\s*\w+\s*[[({]/;
 
 export function extractMermaidFences(src) {
   const diagrams = [];
-  let text = String(src).replace(/```mermaid[ \t]*\r?\n([\s\S]*?)```/g, (m, code) => {
-    diagrams.push(code.trim());
-    return '\n\n@@MERMAID_' + (diagrams.length - 1) + '@@\n\n';
-  });
+  let text = String(src).replace(
+    /```mermaid[ \t]*\r?\n([\s\S]*?)```/g,
+    (m, code) => {
+      diagrams.push(code.trim());
+      return '\n\n@@MERMAID_' + (diagrams.length - 1) + '@@\n\n';
+    },
+  );
 
   // Bare, unfenced diagrams: a line starting with a diagram type, followed by
   // node/edge syntax. Expands across blank lines while the next content still
@@ -29,7 +54,7 @@ export function extractMermaidFences(src) {
   const lines = text.split('\n');
   const out = [];
   let inFence = false;
-  for (let i = 0; i < lines.length; ) {
+  for (let i = 0; i < lines.length;) {
     const trimmed = lines[i].trim();
     const isFence = /^(```+|~~~+)/.test(trimmed);
     if (isFence) {
@@ -46,7 +71,12 @@ export function extractMermaidFences(src) {
           inner.push(lines[j]);
           j++;
         }
-        if (j < lines.length && first && DIAGRAM_TYPE_RE.test(first) && first.split(/\s+/).length >= 2) {
+        if (
+          j < lines.length &&
+          first &&
+          DIAGRAM_TYPE_RE.test(first) &&
+          first.split(/\s+/).length >= 2
+        ) {
           diagrams.push(inner.join('\n').trim());
           out.push('\n\n@@MERMAID_' + (diagrams.length - 1) + '@@\n\n');
           i = j + 1;
@@ -54,9 +84,15 @@ export function extractMermaidFences(src) {
         }
       }
       inFence = !inFence;
-      out.push(lines[i]); i++; continue;
+      out.push(lines[i]);
+      i++;
+      continue;
     }
-    if (!inFence && DIAGRAM_TYPE_RE.test(trimmed) && trimmed.split(/\s+/).length >= 2) {
+    if (
+      !inFence &&
+      DIAGRAM_TYPE_RE.test(trimmed) &&
+      trimmed.split(/\s+/).length >= 2
+    ) {
       const blockLines = [lines[i]];
       let j = i + 1;
       let diagramLine = false;
@@ -68,7 +104,10 @@ export function extractMermaidFences(src) {
           if (k >= lines.length) break;
           if (!DIAGRAM_LINE_RE.test(lines[k].trim())) break;
           diagramLine = true;
-          while (j <= k) { blockLines.push(lines[j]); j++; }
+          while (j <= k) {
+            blockLines.push(lines[j]);
+            j++;
+          }
           continue;
         }
         if (DIAGRAM_LINE_RE.test(t)) diagramLine = true;
@@ -98,7 +137,10 @@ export async function renderMarkdown(text, theme = 'light') {
   const plan = parsePlan(text);
   if (plan) {
     let html = DOMPurify.sanitize(planToHtml(plan));
-    if (plan.rest) html += DOMPurify.sanitize(marked.parse(plan.rest, { gfm: true, breaks: true }));
+    if (plan.rest)
+      html += DOMPurify.sanitize(
+        marked.parse(plan.rest, { gfm: true, breaks: true }),
+      );
     return html;
   }
   const { text: body, diagrams } = extractMermaidFences(text);
@@ -109,7 +151,10 @@ export async function renderMarkdown(text, theme = 'light') {
   if (diagrams.length) {
     mermaidLib = (await import('mermaid')).default;
     if (initializedTheme !== theme) {
-      mermaidLib.initialize({ startOnLoad: false, theme: theme === 'dark' ? 'dark' : 'default' });
+      mermaidLib.initialize({
+        startOnLoad: false,
+        theme: theme === 'dark' ? 'dark' : 'default',
+      });
       initializedTheme = theme;
     }
   }
@@ -118,11 +163,17 @@ export async function renderMarkdown(text, theme = 'light') {
   for (let i = 0; i < diagrams.length; i++) {
     const key = '@@MERMAID_' + i + '@@';
     try {
-      const r = await mermaidLib.render('mdpv-m-' + i + '-' + theme, diagrams[i]);
-      const svg = (r && r.svg) ? r.svg : '';
-      replacements[key] = svg ? '<div class="mdiagram">' + svg + '</div>' : `<pre class="mermaid-error">Diagram failed to render:\n${escapeHtml(diagrams[i])}</pre>`;
+      const r = await mermaidLib.render(
+        'mdpv-m-' + i + '-' + theme,
+        diagrams[i],
+      );
+      const svg = r && r.svg ? r.svg : '';
+      replacements[key] = svg
+        ? '<div class="mdiagram">' + svg + '</div>'
+        : `<pre class="mermaid-error">Diagram failed to render:\n${escapeHtml(diagrams[i])}</pre>`;
     } catch (_) {
-      replacements[key] = `<pre class="mermaid-error">Diagram failed to render:\n${escapeHtml(diagrams[i])}</pre>`;
+      replacements[key] =
+        `<pre class="mermaid-error">Diagram failed to render:\n${escapeHtml(diagrams[i])}</pre>`;
     }
   }
   for (const [k, v] of Object.entries(replacements)) {
@@ -144,7 +195,10 @@ async function highlightCode(html) {
     const langGuess = (el.className || '').replace(/^language-/, '').trim();
     try {
       const lang = langGuess && hljs.getLanguage(langGuess);
-      if (lang) el.innerHTML = hljs.highlight(el.textContent, { language: langGuess }).value;
+      if (lang)
+        el.innerHTML = hljs.highlight(el.textContent, {
+          language: langGuess,
+        }).value;
       else el.innerHTML = hljs.highlightAuto(el.textContent).value;
       el.classList.add('hljs');
     } catch (_) {

@@ -13,14 +13,18 @@ describe('HistorySection', () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
     await act(async () => {
-      root.render(createElement(HistorySection, {
-        history: [entry],
-        onOpen,
-        onRemove,
-      }));
+      root.render(
+        createElement(HistorySection, {
+          history: [entry],
+          onOpen,
+          onRemove,
+        }),
+      );
     });
 
-    const removeButton = container.querySelector('[aria-label="Remove notes from recent"]');
+    const removeButton = container.querySelector(
+      '[aria-label="Remove notes from recent"]',
+    );
     expect(removeButton).not.toBeNull();
 
     await act(async () => removeButton.click());

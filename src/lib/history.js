@@ -3,7 +3,9 @@ const DB_NAME = 'mdpv-history';
 const STORE = 'entries';
 
 function normalizeLimit(limit) {
-  return Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : HISTORY_LIMIT;
+  return Number.isFinite(limit)
+    ? Math.max(0, Math.floor(limit))
+    : HISTORY_LIMIT;
 }
 
 // Date.now() collides when two entries are added in the same millisecond, and the
@@ -32,7 +34,8 @@ async function run(mode, fn) {
     const t = db.transaction(STORE, mode);
     const store = t.objectStore(STORE);
     const out = fn(store);
-    t.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+    t.oncomplete = () =>
+      resolve(out && out.result !== undefined ? out.result : out);
     t.onerror = () => reject(t.error);
     t.onabort = () => reject(t.error);
   });
@@ -51,9 +54,15 @@ export function createHistory() {
     async list(limit = HISTORY_LIMIT) {
       try {
         const rows = await run('readonly', rawList);
-        return rows.sort((a, b) => b.rank - a.rank).slice(0, normalizeLimit(limit));
+        return rows
+          .sort((a, b) => b.rank - a.rank)
+          .slice(0, normalizeLimit(limit));
       } catch (err) {
-        if (err && (err.name === 'SecurityError' || err.name === 'InvalidStateError')) return [];
+        if (
+          err &&
+          (err.name === 'SecurityError' || err.name === 'InvalidStateError')
+        )
+          return [];
         throw err;
       }
     },
@@ -62,7 +71,13 @@ export function createHistory() {
       if (!handle || !handle.name) return;
       const rows = await this.list(limit);
       const rest = rows.filter((e) => e.name !== handle.name);
-      rest.unshift({ name: handle.name, kind: handle.kind || 'file', handle, rank: nextRank(), location });
+      rest.unshift({
+        name: handle.name,
+        kind: handle.kind || 'file',
+        handle,
+        rank: nextRank(),
+        location,
+      });
       const want = rest.slice(0, normalizeLimit(limit));
       await run('readwrite', (store) => store.clear());
       for (const e of want) await run('readwrite', (store) => store.put(e));

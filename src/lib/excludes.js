@@ -4,7 +4,12 @@ export const DEFAULT_EXCLUDES = [
 ];
 
 export function isValidRegex(value) {
-  try { new RegExp(value); return true; } catch (_) { return false; }
+  try {
+    new RegExp(value);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -20,7 +25,9 @@ export function shouldExclude(relPath, rules) {
     } else if (rule.type === 'regex') {
       try {
         if (new RegExp(rule.value).test(relPath)) return true;
-      } catch (_) { /* invalid stored pattern matches nothing */ }
+      } catch (_) {
+        /* invalid stored pattern matches nothing */
+      }
     }
   }
   return false;
@@ -30,18 +37,29 @@ export function shouldExclude(relPath, rules) {
 export function validateDraft(value, type, rules) {
   const v = String(value || '').trim();
   if (!v) return 'Enter a name or pattern.';
-  if (type === 'name' && v.includes('/')) return 'Use Regex for patterns containing "/".';
-  if (type === 'regex' && !isValidRegex(v)) return 'That is not a valid regular expression.';
-  if (rules.some((r) => r.type === type && r.value === v)) return 'That rule already exists.';
+  if (type === 'name' && v.includes('/'))
+    return 'Use Regex for patterns containing "/".';
+  if (type === 'regex' && !isValidRegex(v))
+    return 'That is not a valid regular expression.';
+  if (rules.some((r) => r.type === type && r.value === v))
+    return 'That rule already exists.';
   return null;
 }
 
 /** Parse stored JSON, keeping only well-formed rules. */
 export function parseRules(raw) {
   let parsed;
-  try { parsed = JSON.parse(raw); } catch (_) { return []; }
+  try {
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    return [];
+  }
   if (!Array.isArray(parsed)) return [];
-  return parsed.filter((r) =>
-    r && (r.type === 'name' || r.type === 'regex') && typeof r.value === 'string' && r.value.trim()
+  return parsed.filter(
+    (r) =>
+      r &&
+      (r.type === 'name' || r.type === 'regex') &&
+      typeof r.value === 'string' &&
+      r.value.trim(),
   );
 }

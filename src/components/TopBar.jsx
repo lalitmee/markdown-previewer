@@ -1,6 +1,14 @@
 import { useRef } from 'react';
 
-export default function TopBar({ doc, onHome, hasRecents, onRecents, library, onSettings, settingsActive }) {
+export default function TopBar({
+  doc,
+  onHome,
+  hasRecents,
+  onRecents,
+  library,
+  onSettings,
+  settingsActive,
+}) {
   const searchRef = useRef(null);
 
   function clearSearch() {
@@ -12,19 +20,39 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
     <header className="topbar">
       <div className="topbar-left">
         {settingsActive && (
-          <button className="btn secondary icon-btn settings-back" onClick={onSettings} title="Back to app" aria-label="Back to app">
+          <button
+            className="btn secondary icon-btn settings-back"
+            onClick={onSettings}
+            title="Back to app"
+            aria-label="Back to app"
+          >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
         )}
         {!doc && (
-          <button className="brand" onClick={onHome} title="MD Prev — go home" aria-label="Go home">
-            <img className="brand-icon" src="/logo.svg" alt="" aria-hidden="true" />
+          <button
+            className="brand"
+            onClick={onHome}
+            title="MD Prev — go home"
+            aria-label="Go home"
+          >
+            <img
+              className="brand-icon"
+              src="/logo.svg"
+              alt=""
+              aria-hidden="true"
+            />
             {!settingsActive && <span>MD Prev</span>}
           </button>
         )}
         {settingsActive && <span className="topbar-title">Settings</span>}
         {doc && (
-          <button className="btn secondary icon-btn" onClick={doc.onBack} title="Back" aria-label="Back">
+          <button
+            className="btn secondary icon-btn"
+            onClick={doc.onBack}
+            title="Back"
+            aria-label="Back"
+          >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
         )}
@@ -45,8 +73,16 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
                   clearSearch();
                 }
               }}
-              placeholder={library.scope === 'content' ? 'Search file content…' : 'Search file names…'}
-              aria-label={library.scope === 'content' ? 'Search file content' : 'Search file names'}
+              placeholder={
+                library.scope === 'content'
+                  ? 'Search file content…'
+                  : 'Search file names…'
+              }
+              aria-label={
+                library.scope === 'content'
+                  ? 'Search file content'
+                  : 'Search file names'
+              }
             />
             {library.query && (
               <button
@@ -55,7 +91,9 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
                 title="Clear search"
                 aria-label="Clear search"
               >
-                <span className="material-symbols-outlined" aria-hidden="true">close</span>
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  close
+                </span>
               </button>
             )}
           </div>
@@ -66,14 +104,18 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
               title="Search file names"
               aria-label="Search file names"
               aria-pressed={library.scope !== 'content'}
-            ><span className="material-symbols-outlined">title</span></button>
+            >
+              <span className="material-symbols-outlined">title</span>
+            </button>
             <button
               className={library.scope === 'content' ? 'active' : ''}
               onClick={() => library.onScope('content')}
               title="Search file content"
               aria-label="Search file content"
               aria-pressed={library.scope === 'content'}
-            ><span className="material-symbols-outlined">article</span></button>
+            >
+              <span className="material-symbols-outlined">article</span>
+            </button>
           </div>
         </div>
       )}
@@ -86,20 +128,32 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
               onClick={() => library.onViewMode('grid')}
               title="Grid view"
               aria-label="Grid view"
-            ><span className="material-symbols-outlined">grid_view</span></button>
+            >
+              <span className="material-symbols-outlined">grid_view</span>
+            </button>
             <button
               className={library.viewMode === 'list' ? 'active' : ''}
               onClick={() => library.onViewMode('list')}
               title="List view"
               aria-label="List view"
-            ><span className="material-symbols-outlined">view_list</span></button>
+            >
+              <span className="material-symbols-outlined">view_list</span>
+            </button>
           </div>
         )}
         {doc && doc.mode === 'edit' && (
           <label className="font-picker" title="Editor font">
             <span className="material-symbols-outlined">text_fields</span>
-            <select value={doc.font} onChange={(e) => doc.onFont(e.target.value)} aria-label="Editor font">
-              {doc.fontOptions.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
+            <select
+              value={doc.font}
+              onChange={(e) => doc.onFont(e.target.value)}
+              aria-label="Editor font"
+            >
+              {doc.fontOptions.map((f) => (
+                <option key={f.label} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
             </select>
           </label>
         )}
@@ -120,11 +174,18 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
             title={doc.mode === 'edit' ? 'Preview' : 'Edit'}
             aria-label={doc.mode === 'edit' ? 'Preview' : 'Edit'}
           >
-            <span className="material-symbols-outlined">{doc.mode === 'edit' ? 'visibility' : 'edit'}</span>
+            <span className="material-symbols-outlined">
+              {doc.mode === 'edit' ? 'visibility' : 'edit'}
+            </span>
           </button>
         )}
         {doc && doc.canSave && doc.mode === 'edit' && (
-          <button className="btn primary icon-btn" onClick={doc.onSave} title="Save" aria-label="Save">
+          <button
+            className="btn primary icon-btn"
+            onClick={doc.onSave}
+            title="Save"
+            aria-label="Save"
+          >
             <span className="material-symbols-outlined">save</span>
           </button>
         )}

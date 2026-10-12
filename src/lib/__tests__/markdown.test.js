@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  extractMermaidFences,
-  renderMarkdown,
-} from '../markdown';
+import { extractMermaidFences, renderMarkdown } from '../markdown';
 
 describe('extractMermaidFences', () => {
   it('replaces mermaid fences with placeholders and collects diagrams', () => {
@@ -29,7 +26,8 @@ describe('extractMermaidFences', () => {
   });
 
   it('detects bare unfenced flowchart diagrams', () => {
-    const src = 'flowchart TD\n  A["React 18"] --> B["No events"]\n  B --> C["pain"]';
+    const src =
+      'flowchart TD\n  A["React 18"] --> B["No events"]\n  B --> C["pain"]';
     const { text, diagrams } = extractMermaidFences(src);
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0]).toContain('flowchart TD');
@@ -54,7 +52,8 @@ describe('extractMermaidFences', () => {
   });
 
   it('stops the diagram before non-diagram prose', () => {
-    const src = 'flowchart TD\n  A --> B\n\nThese are some notes about the flow.';
+    const src =
+      'flowchart TD\n  A --> B\n\nThese are some notes about the flow.';
     const { text, diagrams } = extractMermaidFences(src);
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0]).not.toContain('These are');
@@ -62,13 +61,16 @@ describe('extractMermaidFences', () => {
   });
 
   it('does not treat prose starting with a diagram word as a diagram', () => {
-    const { text, diagrams } = extractMermaidFences('graph theory is fun to study');
+    const { text, diagrams } = extractMermaidFences(
+      'graph theory is fun to study',
+    );
     expect(diagrams).toEqual([]);
     expect(text).toBe('graph theory is fun to study');
   });
 
   it('detects a bare diagram wrapped in an unlabeled code fence', () => {
-    const src = 'intro paragraph\n\n```\nflowchart TD\n  expA["getEligible(VARIANT, A)"] --> props\n  props --> checked{"variant?"}\n  checked -->|yes| icon["WISHLIST_ICON heart SVG"]\n```\n\noutro paragraph';
+    const src =
+      'intro paragraph\n\n```\nflowchart TD\n  expA["getEligible(VARIANT, A)"] --> props\n  props --> checked{"variant?"}\n  checked -->|yes| icon["WISHLIST_ICON heart SVG"]\n```\n\noutro paragraph';
     const { text, diagrams } = extractMermaidFences(src);
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0]).toContain('flowchart TD');
@@ -102,7 +104,9 @@ describe('extractMermaidFences', () => {
 
 describe('renderMarkdown', () => {
   it('renders GFM table and task lists', async () => {
-    const html = await renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done');
+    const html = await renderMarkdown(
+      '| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done',
+    );
     expect(html).toContain('<table>');
     expect(html).toContain('type="checkbox"');
   });

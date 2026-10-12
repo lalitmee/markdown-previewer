@@ -21,8 +21,9 @@ function duplicateFolderPaths(files) {
 
       for (let depth = 1; depth <= parts.length; depth++) {
         const suffix = parts.slice(-depth).join('/');
-        const isUnique = folders.every((other, otherIndex) =>
-          otherIndex === index || other.slice(-depth).join('/') !== suffix,
+        const isUnique = folders.every(
+          (other, otherIndex) =>
+            otherIndex === index || other.slice(-depth).join('/') !== suffix,
         );
         if (isUnique) {
           paths.set(group[index].path, suffix + '/');
@@ -34,11 +35,24 @@ function duplicateFolderPaths(files) {
   return paths;
 }
 
-export default function Library({ files, folderName, cache, indexed, query, scope, viewMode, onOpen }) {
+export default function Library({
+  files,
+  folderName,
+  cache,
+  indexed,
+  query,
+  scope,
+  viewMode,
+  onOpen,
+}) {
   const folderPaths = duplicateFolderPaths(files);
   const q = (query || '').trim().toLowerCase();
   const byName = scope !== 'content';
-  const shown = q ? files.filter((f) => (byName ? f.name : cache.get(f.path) || '').toLowerCase().includes(q)) : files;
+  const shown = q
+    ? files.filter((f) =>
+        (byName ? f.name : cache.get(f.path) || '').toLowerCase().includes(q),
+      )
+    : files;
 
   const body = (f, name, snip) => (
     <button
@@ -49,9 +63,13 @@ export default function Library({ files, folderName, cache, indexed, query, scop
     >
       <span className="file-label">
         <span className="fname" dangerouslySetInnerHTML={{ __html: name }} />
-        {folderPaths.has(f.path) && <span className="folder-path">{folderPaths.get(f.path)}</span>}
+        {folderPaths.has(f.path) && (
+          <span className="folder-path">{folderPaths.get(f.path)}</span>
+        )}
       </span>
-      {snip && <span className="snippet" dangerouslySetInnerHTML={{ __html: snip }} />}
+      {snip && (
+        <span className="snippet" dangerouslySetInnerHTML={{ __html: snip }} />
+      )}
     </button>
   );
 
@@ -60,7 +78,12 @@ export default function Library({ files, folderName, cache, indexed, query, scop
       <p className="result-count">
         {folderName && (
           <span className="crumb">
-            <span className="material-symbols-outlined crumb-ico" aria-hidden="true">folder</span>
+            <span
+              className="material-symbols-outlined crumb-ico"
+              aria-hidden="true"
+            >
+              folder
+            </span>
             {folderName}
           </span>
         )}
@@ -73,10 +96,12 @@ export default function Library({ files, folderName, cache, indexed, query, scop
       <div className={viewMode === 'list' ? 'list-view' : 'file-grid'}>
         {shown.map((f) => {
           const t = cache.get(f.path) || '';
-          const snip = q && !byName ? highlightSnippet(findSnippet(t, q), q) : '';
-          const name = q && f.name.toLowerCase().includes(q)
-            ? highlightSnippet(f.name, q)
-            : escapeHtml(f.name);
+          const snip =
+            q && !byName ? highlightSnippet(findSnippet(t, q), q) : '';
+          const name =
+            q && f.name.toLowerCase().includes(q)
+              ? highlightSnippet(f.name, q)
+              : escapeHtml(f.name);
           return body(f, name, snip);
         })}
       </div>
