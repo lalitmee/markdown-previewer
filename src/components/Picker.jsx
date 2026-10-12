@@ -10,10 +10,12 @@ export default function Picker({ onPickFile, onPickFolder }) {
         </p>
         <div className="dz-actions">
           <button className="btn primary" onClick={onPickFolder}>
-            <span className="material-symbols-outlined btn-ico">folder</span> Choose folder
+            <span className="material-symbols-outlined btn-ico">folder</span>{' '}
+            Choose folder
           </button>
           <button className="btn secondary" onClick={onPickFile}>
-            <span className="material-symbols-outlined btn-ico">note_add</span> Open single file
+            <span className="material-symbols-outlined btn-ico">note_add</span>{' '}
+            Open single file
           </button>
         </div>
       </div>

@@ -23,7 +23,12 @@ describe('parsePlan', () => {
     expect(p.title).toBe('Cart wishlist icon fix');
     expect(p.overview).toContain('wishlist icon');
     expect(p.todos).toHaveLength(3);
-    expect(p.todos[0]).toEqual({ id: 'rc-pdp-experiment', content: 'Add SEARCH_INP_ON_CART to remote-config/pdp/experiments/config.json', status: 'pending' });
+    expect(p.todos[0]).toEqual({
+      id: 'rc-pdp-experiment',
+      content:
+        'Add SEARCH_INP_ON_CART to remote-config/pdp/experiments/config.json',
+      status: 'pending',
+    });
     expect(p.todos[2].status).toBe('completed');
   });
 
@@ -34,7 +39,9 @@ describe('parsePlan', () => {
   });
 
   it('captures content after the todos block as rest', () => {
-    const p = parsePlan(PLAN + '\n\n## Next steps\n- File a follow-up for Safari support.');
+    const p = parsePlan(
+      PLAN + '\n\n## Next steps\n- File a follow-up for Safari support.',
+    );
     expect(p.rest).toContain('## Next steps');
     expect(p.rest).toContain('Safari support');
   });
@@ -56,7 +63,11 @@ todos:
   status: in progress
 isProject: false`);
     expect(p.todos).toHaveLength(2);
-    expect(p.todos[0]).toEqual({ id: 'a', content: 'Add thing', status: 'completed' });
+    expect(p.todos[0]).toEqual({
+      id: 'a',
+      content: 'Add thing',
+      status: 'completed',
+    });
     expect(p.todos[1].content).toBe('Second one');
   });
 
@@ -70,7 +81,9 @@ isProject: false`);
 describe('planToHtml', () => {
   it('renders h1 title, overview and status boxes', () => {
     const html = planToHtml(parsePlan(PLAN));
-    expect(html).toContain('<h1 class="plan-title">Cart wishlist icon fix</h1>');
+    expect(html).toContain(
+      '<h1 class="plan-title">Cart wishlist icon fix</h1>',
+    );
     expect(html).toContain('plan-overview');
     expect(html).toContain('check_box_outline_blank');
     expect(html).toContain('indeterminate_check_box');
@@ -78,7 +91,11 @@ describe('planToHtml', () => {
   });
 
   it('escapes content', () => {
-    const html = planToHtml(parsePlan('name: x\noverview: y\ntodos:\nid: a\ncontent: <img src=x onerror=1>\nstatus: pending'));
+    const html = planToHtml(
+      parsePlan(
+        'name: x\noverview: y\ntodos:\nid: a\ncontent: <img src=x onerror=1>\nstatus: pending',
+      ),
+    );
     expect(html).not.toContain('<img');
   });
 });
@@ -92,7 +109,10 @@ describe('renderMarkdown plan integration', () => {
   });
 
   it('renders trailing content after todos as markdown', async () => {
-    const html = await renderMarkdown(PLAN + '\n\n## Next steps\n\nSome more **context**.', 'light');
+    const html = await renderMarkdown(
+      PLAN + '\n\n## Next steps\n\nSome more **context**.',
+      'light',
+    );
     expect(html).toContain('plan-todos');
     expect(html).toContain('<h2>Next steps</h2>');
     expect(html).toContain('<strong>context</strong>');

@@ -6,18 +6,21 @@ import SettingsPage from '../SettingsPage';
 import { ACCENT_PRESETS } from '../../lib/accent';
 
 function render(props = {}) {
-  return renderToStaticMarkup(createElement(SettingsPage, {
-    rules: [],
-    theme: 'light',
-    accent: null,
-    onThemeSelect: () => {},
-    onAccentSelect: () => {},
-    onAdd: () => {},
-    onRemove: () => {},
-    onReset: () => {},
-    onBack: () => {},
-    ...props,
-  }));
+  return renderToStaticMarkup(
+    createElement(SettingsPage, {
+      rules: [],
+      theme: 'light',
+      accent: null,
+      historyLimit: 20,
+      onThemeSelect: () => {},
+      onAccentSelect: () => {},
+      onHistoryLimitSelect: () => {},
+      onAdd: () => {},
+      onRemove: () => {},
+      onReset: () => {},
+      ...props,
+    }),
+  );
 }
 
 function container(html) {
@@ -27,9 +30,22 @@ function container(html) {
 }
 
 describe('SettingsPage', () => {
-  it('renders a back button, input, and type toggle (Enter adds, no Add button)', () => {
+  it('offers recent-item limits as an accessible segmented control', () => {
+    const c = container(render({ historyLimit: 10 }));
+    const group = c.querySelector('[aria-label="Recent items limit"]');
+    expect(group.getAttribute('role')).toBe('group');
+    expect(
+      Array.from(
+        group.querySelectorAll('button'),
+        (button) => button.textContent,
+      ),
+    ).toEqual(['5', '10', '20', '50']);
+    expect(group.querySelector('[aria-pressed="true"]').textContent).toBe('10');
+  });
+
+  it('renders no in-card back button, plus input and type toggle (Enter adds, no Add button)', () => {
     const c = container(render());
-    expect(c.querySelector('[aria-label="Back"]')).not.toBeNull();
+    expect(c.querySelector('[aria-label="Back"]')).toBeNull();
     expect(c.querySelector('input')).not.toBeNull();
     expect(c.querySelector('[aria-label="Name pattern"]')).not.toBeNull();
     expect(c.querySelector('[aria-label="Regex pattern"]')).not.toBeNull();
@@ -41,14 +57,18 @@ describe('SettingsPage', () => {
   });
 
   it('renders one chip per rule', () => {
-    const c = container(render({
-      rules: [
-        { type: 'name', value: 'node_modules' },
-        { type: 'regex', value: '^docs/private/' },
-      ],
-    }));
+    const c = container(
+      render({
+        rules: [
+          { type: 'name', value: 'node_modules' },
+          { type: 'regex', value: '^docs/private/' },
+        ],
+      }),
+    );
     expect(c.querySelectorAll('.settings-chip').length).toBe(2);
-    expect(c.querySelector('.settings-chip').textContent).toContain('node_modules');
+    expect(c.querySelector('.settings-chip').textContent).toContain(
+      'node_modules',
+    );
   });
 
   it('renders an appearance section with a theme toggle', () => {
@@ -69,9 +89,19 @@ describe('SettingsPage', () => {
 
   it('marks the selected theme with aria-pressed', () => {
     const c = container(render({ theme: 'system' }));
-    expect(c.querySelector('[aria-label="System theme"]').getAttribute('aria-pressed')).toBe('true');
-    expect(c.querySelector('[aria-label="Light theme"]').getAttribute('aria-pressed')).toBe('false');
-    expect(c.querySelector('[aria-label="Dark theme"]').getAttribute('aria-pressed')).toBe('false');
+    expect(
+      c
+        .querySelector('[aria-label="System theme"]')
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(
+      c
+        .querySelector('[aria-label="Light theme"]')
+        .getAttribute('aria-pressed'),
+    ).toBe('false');
+    expect(
+      c.querySelector('[aria-label="Dark theme"]').getAttribute('aria-pressed'),
+    ).toBe('false');
   });
 
   it('keeps the reset button enabled even when the list is empty', () => {
@@ -90,7 +120,9 @@ describe('SettingsPage', () => {
     const swatches = group.querySelectorAll('.accent-swatch');
     expect(swatches.length).toBe(ACCENT_PRESETS.length);
     for (const hex of ACCENT_PRESETS) {
-      expect(group.querySelector(`[aria-label="Accent color ${hex}"]`)).not.toBeNull();
+      expect(
+        group.querySelector(`[aria-label="Accent color ${hex}"]`),
+      ).not.toBeNull();
     }
     const picker = group.querySelector('input[type="color"]');
     expect(picker).not.toBeNull();
@@ -99,8 +131,16 @@ describe('SettingsPage', () => {
 
   it('marks the active accent preset with aria-pressed', () => {
     const c = container(render({ accent: '#188038' }));
-    expect(c.querySelector('[aria-label="Accent color #188038"]').getAttribute('aria-pressed')).toBe('true');
-    expect(c.querySelector('[aria-label="Accent color #1a73e8"]').getAttribute('aria-pressed')).toBe('false');
+    expect(
+      c
+        .querySelector('[aria-label="Accent color #188038"]')
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(
+      c
+        .querySelector('[aria-label="Accent color #1a73e8"]')
+        .getAttribute('aria-pressed'),
+    ).toBe('false');
   });
 
   it('fires onAccentSelect when a preset is clicked', async () => {
@@ -110,17 +150,18 @@ describe('SettingsPage', () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
     await act(async () => {
-      root.render(createElement(SettingsPage, {
-        rules: [],
-        theme: 'light',
-        accent: null,
-        onThemeSelect: () => {},
-        onAccentSelect,
-        onAdd: () => {},
-        onRemove: () => {},
-        onReset: () => {},
-        onBack: () => {},
-      }));
+      root.render(
+        createElement(SettingsPage, {
+          rules: [],
+          theme: 'light',
+          accent: null,
+          onThemeSelect: () => {},
+          onAccentSelect,
+          onAdd: () => {},
+          onRemove: () => {},
+          onReset: () => {},
+        }),
+      );
     });
 
     const swatch = host.querySelector('[aria-label="Accent color #d93025"]');

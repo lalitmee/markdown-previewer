@@ -13,23 +13,40 @@ import {
 } from '../lib/tableColumns';
 import ZoomModal from './ZoomModal';
 
-export default function Preview({ entry, text, setText, theme, folderHandle, mode, onMode, editorFont, widthVar }) {
+export default function Preview({
+  entry,
+  text,
+  setText,
+  theme,
+  folderHandle,
+  mode,
+  editorFont,
+  widthVar,
+}) {
   const [html, setHtml] = useState('');
   const [zoomSvg, setZoomSvg] = useState(null);
   const [tableState, setTableState] = useState({});
   const previewRef = useRef(null);
 
-  const fontTheme = EditorView.theme({ '.cm-content': { fontFamily: editorFont } });
+  const fontTheme = EditorView.theme({
+    '.cm-content': { fontFamily: editorFont },
+  });
   const extensions = [markdown(), fontTheme];
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const rendered = await renderMarkdown(text, theme);
-      const inlined = await inlineImages(rendered, folderHandle, entry ? entry.path : '');
+      const inlined = await inlineImages(
+        rendered,
+        folderHandle,
+        entry ? entry.path : '',
+      );
       if (!cancelled) setHtml(inlined);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [text, theme, entry, folderHandle]);
 
   // Structural pass: rebuild handles/colgroup/rail on the fresh DOM. Keyed on
@@ -42,7 +59,9 @@ export default function Preview({ entry, text, setText, theme, folderHandle, mod
   // Apply pass: cheap, runs after the structural pass and on every state change.
   useEffect(() => {
     if (!previewRef.current) return;
-    previewRef.current.querySelectorAll('.md-body').forEach((b) => applyTableState(b, tableState));
+    previewRef.current
+      .querySelectorAll('.md-body')
+      .forEach((b) => applyTableState(b, tableState));
   }, [tableState, html, mode]);
 
   function onPointerDown(e) {
@@ -57,22 +76,32 @@ export default function Preview({ entry, text, setText, theme, folderHandle, mod
     // changes that column and widens the table (the wrap scrolls) rather than
     // squeezing the others.
     const freeze = {};
-    handle.closest('table').querySelectorAll('thead th').forEach((th, i) => {
-      if (th.classList.contains('mp-col-hidden')) return;
-      const w = Math.round(th.getBoundingClientRect().width);
-      if (w > 0) freeze[i] = w;
-    });
-    const startW = freeze[c] ?? handle.parentElement.getBoundingClientRect().width;
+    handle
+      .closest('table')
+      .querySelectorAll('thead th')
+      .forEach((th, i) => {
+        if (th.classList.contains('mp-col-hidden')) return;
+        const w = Math.round(th.getBoundingClientRect().width);
+        if (w > 0) freeze[i] = w;
+      });
+    const startW =
+      freeze[c] ?? handle.parentElement.getBoundingClientRect().width;
     setTableState((s) => setColumnWidths(s, t, freeze));
     // The table can grow wider than the pane; the scroll box clips it, which
     // would hide the dragged handle. While resizing, keep that handle in view:
     // pin the scroll to the right when dragging the last visible column (the
     // reported case), and otherwise nudge the scroll as the pointer nears an edge.
     const scroller = handle.closest('.mp-table-scroll');
-    const ths = Array.from(handle.closest('table').querySelectorAll('thead th'));
-    const isLast = ths.filter((th) => !th.classList.contains('mp-col-hidden')).pop() === handle.closest('th');
+    const ths = Array.from(
+      handle.closest('table').querySelectorAll('thead th'),
+    );
+    const isLast =
+      ths.filter((th) => !th.classList.contains('mp-col-hidden')).pop() ===
+      handle.closest('th');
     const onMove = (ev) => {
-      setTableState((s) => setColumnWidth(s, t, c, startW + (ev.clientX - startX)));
+      setTableState((s) =>
+        setColumnWidth(s, t, c, startW + (ev.clientX - startX)),
+      );
       // React commits the new width after this handler, so adjust the scroll on
       // the next frame (when scrollWidth reflects it) to keep the handle in view.
       requestAnimationFrame(() => {
@@ -107,12 +136,24 @@ export default function Preview({ entry, text, setText, theme, folderHandle, mod
     }
     const toggle = e.target.closest('.mp-hide, .mp-chip');
     if (toggle) {
-      setTableState((s) => toggleColumnHidden(s, Number(toggle.dataset.t), Number(toggle.dataset.c)));
+      setTableState((s) =>
+        toggleColumnHidden(
+          s,
+          Number(toggle.dataset.t),
+          Number(toggle.dataset.c),
+        ),
+      );
     }
   }
 
   return (
-    <main className="preview-page" style={{ ['--md-maxw']: widthVar }} ref={previewRef} onPointerDown={onPointerDown} onClick={onClick}>
+    <main
+      className="preview-page"
+      style={{ ['--md-maxw']: widthVar }}
+      ref={previewRef}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+    >
       {mode === 'edit' ? (
         <div className="split">
           <div className="split-left">
@@ -124,7 +165,12 @@ export default function Preview({ entry, text, setText, theme, folderHandle, mod
               height="100%"
             />
           </div>
-          <div className="split-right"><div className="md-body" dangerouslySetInnerHTML={{ __html: html }} /></div>
+          <div className="split-right">
+            <div
+              className="md-body"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          </div>
         </div>
       ) : (
         <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
