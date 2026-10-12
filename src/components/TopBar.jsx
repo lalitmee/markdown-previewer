@@ -13,7 +13,7 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
       <div className="topbar-left">
         {!doc && (
           <button className="brand" onClick={onHome} title="MD Prev — go home" aria-label="Go home">
-            <img className="brand-icon" src="/logo.svg" alt="" aria-hidden="true" />
+            <img className="brand-icon" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" aria-hidden="true" />
             <span>MD Prev</span>
           </button>
         )}
