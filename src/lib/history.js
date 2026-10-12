@@ -50,6 +50,8 @@ function rawList(store) {
 }
 
 export function createHistory() {
+  let currentLimit = HISTORY_LIMIT;
+
   return {
     async list(limit = HISTORY_LIMIT) {
       try {
@@ -69,22 +71,28 @@ export function createHistory() {
 
     async add(handle, location, limit = HISTORY_LIMIT) {
       if (!handle || !handle.name) return;
-      const rows = await this.list(limit);
-      const rest = rows.filter((e) => e.name !== handle.name);
-      rest.unshift({
-        name: handle.name,
-        kind: handle.kind || 'file',
-        handle,
-        rank: nextRank(),
-        location,
+      await run('readwrite', (store) => {
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const rows = (req.result || []).sort((a, b) => b.rank - a.rank);
+          const rest = rows.filter((e) => e.name !== handle.name);
+          rest.unshift({
+            name: handle.name,
+            kind: handle.kind || 'file',
+            handle,
+            rank: nextRank(),
+            location,
+          });
+          const keep = Math.min(normalizeLimit(limit), currentLimit);
+          store.clear();
+          for (const entry of rest.slice(0, keep)) store.put(entry);
+        };
       });
-      const want = rest.slice(0, normalizeLimit(limit));
-      await run('readwrite', (store) => store.clear());
-      for (const e of want) await run('readwrite', (store) => store.put(e));
     },
 
     async trim(limit = HISTORY_LIMIT) {
       const keep = normalizeLimit(limit);
+      currentLimit = keep;
       const result = { result: [] };
       await run('readwrite', (store) => {
         const req = store.getAll();

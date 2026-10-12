@@ -103,6 +103,7 @@ export default function App() {
   const [files, setFiles] = useState([]);
   const [historyList, setHistoryList] = useState([]);
   const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
+  const historyLimitRef = useRef(historyLimit);
   const [active, setActive] = useState(null); // { name, path, handle }
   const [text, setText] = useState('');
   const [notice, setNotice] = useState('');
@@ -322,13 +323,16 @@ export default function App() {
   }
 
   async function persistHistory(handle, location) {
+    const request = historyLimitRequestRef.current;
     try {
-      await history.add(handle, location, historyLimit);
+      await history.add(handle, location, historyLimitRef.current);
     } catch (_) {
       /* persistence is best-effort */
     }
+    if (request !== historyLimitRequestRef.current) return;
     try {
-      setHistoryList(await history.list(historyLimit));
+      const rows = await history.list(historyLimitRef.current);
+      if (request === historyLimitRequestRef.current) setHistoryList(rows);
     } catch (_) {
       /* ignore */
     }
@@ -337,6 +341,7 @@ export default function App() {
   async function pickHistoryLimit(limit) {
     if (!HISTORY_LIMIT_OPTIONS.includes(limit)) return;
     const request = ++historyLimitRequestRef.current;
+    historyLimitRef.current = limit;
     setHistoryLimit(limit);
     try {
       localStorage.setItem(HISTORY_LIMIT_KEY, String(limit));

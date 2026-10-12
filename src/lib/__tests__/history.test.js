@@ -78,6 +78,17 @@ describe('history store', () => {
     expect((await store.list())[0].kind).toBe('file');
   });
 
+  it('does not let an add using an older limit exceed the latest trimmed cap', async () => {
+    for (let i = 0; i < 10; i++)
+      await store.add(fakeHandle(`item-${i}`), undefined, 10);
+
+    await store.trim(5);
+    await store.add(fakeHandle('newest'), undefined, 10);
+
+    expect(await store.list(10)).toHaveLength(5);
+    expect((await store.list(10))[0].name).toBe('newest');
+  });
+
   it('removes an entry by name', async () => {
     await store.add(fakeHandle('gone'));
     await store.remove('gone');

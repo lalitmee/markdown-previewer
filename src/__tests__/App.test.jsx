@@ -45,6 +45,8 @@ beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   historyMock.items = [];
   vi.clearAllMocks();
+  historyMock.add.mockReset();
+  historyMock.add.mockImplementation(async () => {});
   historyMock.list.mockImplementation(async () => historyMock.items);
   historyMock.trim.mockImplementation(async (limit) => {
     historyMock.items = historyMock.items.slice(0, limit);
@@ -236,6 +238,49 @@ describe('App recent-item limit', () => {
 
     expect(group.querySelector('[aria-pressed="true"]').textContent).toBe('50');
     expect(host.querySelectorAll('.history-item')).toHaveLength(2);
+  });
+
+  it('does not publish a pending history add using the previous limit', async () => {
+    localStorage.setItem('mdpv-history-limit', '10');
+    historyMock.items = Array.from({ length: 10 }, (_, i) => ({
+      name: `item-${i}`,
+      kind: 'file',
+      handle: { name: `item-${i}`, kind: 'file' },
+    }));
+    let finishAdd;
+    historyMock.add.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishAdd = () => {
+            historyMock.items = Array.from({ length: 10 }, (_, i) => ({
+              name: `item-${i}`,
+              kind: 'file',
+            }));
+            resolve();
+          };
+        }),
+    );
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('[aria-label="Settings"]').click(),
+    );
+    await act(async () =>
+      host.querySelector('[aria-label="Recent files and folders"]').click(),
+    );
+    await act(async () => host.querySelector('.history-open').click());
+    expect(historyMock.add).toHaveBeenCalledWith(
+      historyMock.items[0].handle,
+      undefined,
+      10,
+    );
+
+    await act(async () =>
+      host.querySelector('[aria-label="Keep 5 recent items"]').click(),
+    );
+    await act(async () => finishAdd());
+
+    expect(host.querySelectorAll('.history-item')).toHaveLength(5);
   });
 
   it('leaves the settings URL when a recent item opens from direct Settings entry', async () => {
