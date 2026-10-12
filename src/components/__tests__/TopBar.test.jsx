@@ -50,7 +50,7 @@ describe('TopBar settings', () => {
     expect(btn.getAttribute('aria-label')).toBe('Settings');
   });
 
-  it('keeps the settings action visible and labels it as an exit while settings is active', () => {
+  it('shows back, logo, and Settings in order while settings is active', () => {
     const markup = renderToStaticMarkup(createElement(TopBar, {
       doc: null,
       onHome: () => {},
@@ -59,6 +59,11 @@ describe('TopBar settings', () => {
     }));
     const container = document.createElement('div');
     container.innerHTML = markup;
-    expect(container.querySelector('.settings-btn')?.getAttribute('aria-label')).toBe('Back to app');
+    expect(container.querySelector('.settings-btn')).toBeNull();
+    const left = container.querySelector('.topbar-left');
+    expect(Array.from(left.children, (el) => el.matches('.settings-back, .brand, .topbar-title'))).toEqual([true, true, true]);
+    expect(left.querySelector('.settings-back').getAttribute('aria-label')).toBe('Back to app');
+    expect(left.querySelector('.brand span')).toBeNull();
+    expect(left.querySelector('.topbar-title').textContent).toBe('Settings');
   });
 });

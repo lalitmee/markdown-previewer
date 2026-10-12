@@ -28,14 +28,18 @@ export default function SettingsPage({ rules, theme, accent, historyLimit = 20, 
         <h2>History</h2>
         <div className="settings-row">
           <label className="settings-row-label" htmlFor="history-limit">Recent items</label>
-          <select
-            id="history-limit"
-            aria-label="Recent items limit"
-            value={historyLimit}
-            onChange={(e) => onHistoryLimitSelect(Number(e.target.value))}
-          >
-            {[5, 10, 20, 50].map((limit) => <option key={limit} value={limit}>{limit} items</option>)}
-          </select>
+          <div className="limit-toggle" role="group" aria-label="Recent items limit">
+            {[5, 10, 20, 50].map((limit) => (
+              <button
+                key={limit}
+                type="button"
+                className={historyLimit === limit ? 'active' : ''}
+                onClick={() => onHistoryLimitSelect(limit)}
+                aria-label={`Keep ${limit} recent items`}
+                aria-pressed={historyLimit === limit}
+              >{limit}</button>
+            ))}
+          </div>
         </div>
       </section>
 

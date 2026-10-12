@@ -44,13 +44,9 @@ describe('App recent-item limit', () => {
     expect(host.querySelectorAll('.history-item')).toHaveLength(7);
 
     await act(async () => host.querySelector('[aria-label="Settings"]').click());
-    const select = host.querySelector('[aria-label="Recent items limit"]');
-    expect(select.value).toBe('10');
-
-    await act(async () => {
-      select.value = '5';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const limitGroup = host.querySelector('[aria-label="Recent items limit"]');
+    expect(limitGroup.querySelector('[aria-pressed="true"]').textContent).toBe('10');
+    await act(async () => limitGroup.querySelector('button[aria-label="Keep 5 recent items"]').click());
 
     expect(localStorage.getItem('mdpv-history-limit')).toBe('5');
     expect(host.querySelector('[aria-label="Recent files and folders"] .history-list').children).toHaveLength(5);
@@ -62,6 +58,6 @@ describe('App recent-item limit', () => {
     localStorage.setItem('mdpv-history-limit', 'not-a-limit');
     await act(async () => root.render(createElement(App)));
     await act(async () => host.querySelector('[aria-label="Settings"]').click());
-    expect(host.querySelector('[aria-label="Recent items limit"]').value).toBe('20');
+    expect(host.querySelector('[aria-label="Recent items limit"] [aria-pressed="true"]').textContent).toBe('20');
   });
 });

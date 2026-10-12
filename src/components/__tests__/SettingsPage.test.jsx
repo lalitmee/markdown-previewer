@@ -28,11 +28,12 @@ function container(html) {
 }
 
 describe('SettingsPage', () => {
-  it('offers the supported recent-item limits and selects the current value', () => {
+  it('offers recent-item limits as an accessible segmented control', () => {
     const c = container(render({ historyLimit: 10 }));
-    const select = c.querySelector('[aria-label="Recent items limit"]');
-    expect(Array.from(select.options, (option) => option.value)).toEqual(['5', '10', '20', '50']);
-    expect(select.value).toBe('10');
+    const group = c.querySelector('[aria-label="Recent items limit"]');
+    expect(group.getAttribute('role')).toBe('group');
+    expect(Array.from(group.querySelectorAll('button'), (button) => button.textContent)).toEqual(['5', '10', '20', '50']);
+    expect(group.querySelector('[aria-pressed="true"]').textContent).toBe('10');
   });
 
   it('renders no in-card back button, plus input and type toggle (Enter adds, no Add button)', () => {

@@ -11,12 +11,18 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
   return (
     <header className="topbar">
       <div className="topbar-left">
+        {settingsActive && (
+          <button className="btn secondary icon-btn settings-back" onClick={onSettings} title="Back to app" aria-label="Back to app">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+        )}
         {!doc && (
           <button className="brand" onClick={onHome} title="MD Prev — go home" aria-label="Go home">
             <img className="brand-icon" src="/logo.svg" alt="" aria-hidden="true" />
-            <span>MD Prev</span>
+            {!settingsActive && <span>MD Prev</span>}
           </button>
         )}
+        {settingsActive && <span className="topbar-title">Settings</span>}
         {doc && (
           <button className="btn secondary icon-btn" onClick={doc.onBack} title="Back" aria-label="Back">
             <span className="material-symbols-outlined">arrow_back</span>
@@ -132,14 +138,14 @@ export default function TopBar({ doc, onHome, hasRecents, onRecents, library, on
             <span className="material-symbols-outlined">history</span>
           </button>
         )}
-        {onSettings && (
+        {onSettings && !settingsActive && (
           <button
             className="settings-btn btn icon-btn"
             onClick={onSettings}
-            title={settingsActive ? 'Back to app' : 'Settings'}
-            aria-label={settingsActive ? 'Back to app' : 'Settings'}
+            title="Settings"
+            aria-label="Settings"
           >
-            <span className="material-symbols-outlined">{settingsActive ? 'arrow_back' : 'settings'}</span>
+            <span className="material-symbols-outlined">settings</span>
           </button>
         )}
       </div>
