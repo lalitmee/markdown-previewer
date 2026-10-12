@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  escapeHtml,
   findSnippet,
   highlightSnippet,
   isMarkdownName,
@@ -26,7 +25,9 @@ describe('isMarkdownName / isImageName', () => {
 
 describe('findSnippet', () => {
   it('returns the matching line trimmed', () => {
-    expect(findSnippet('a\nsmoke test line\nb', 'smoke')).toBe('smoke test line');
+    expect(findSnippet('a\nsmoke test line\nb', 'smoke')).toBe(
+      'smoke test line',
+    );
   });
   it('returns empty for no match or blank query', () => {
     expect(findSnippet('abc', 'zzz')).toBe('');
@@ -36,7 +37,9 @@ describe('findSnippet', () => {
 
 describe('highlightSnippet', () => {
   it('escapes then wraps matches', () => {
-    expect(highlightSnippet('a <b> smoke', 'smoke')).toBe('a &lt;b&gt; <mark>smoke</mark>');
+    expect(highlightSnippet('a <b> smoke', 'smoke')).toBe(
+      'a &lt;b&gt; <mark>smoke</mark>',
+    );
   });
   it('treats regex metacharacters literally', () => {
     expect(highlightSnippet('a.b', '.')).toBe('a<mark>.</mark>b');

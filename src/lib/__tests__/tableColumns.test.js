@@ -24,7 +24,9 @@ describe('table column controls', () => {
     expect(b.querySelectorAll('.mp-resize').length).toBe(3);
     expect(b.querySelectorAll('.mp-hide').length).toBe(3);
     // Guard against an ambiguous icon: must read as "hide".
-    expect(b.querySelector('.mp-hide .material-symbols-outlined').textContent).toBe('visibility_off');
+    expect(
+      b.querySelector('.mp-hide .material-symbols-outlined').textContent,
+    ).toBe('visibility_off');
     expect(b.querySelectorAll('colgroup col').length).toBe(3);
     expect(b.querySelector('.mp-table-wrap')).not.toBeNull();
     expect(b.querySelector('.mp-col-rail')).not.toBeNull();
@@ -36,14 +38,20 @@ describe('table column controls', () => {
     const state = toggleColumnHidden({}, 0, 1);
     applyTableState(b, state);
 
-    expect(b.querySelectorAll('thead th')[1].classList.contains('mp-col-hidden')).toBe(true);
-    expect(b.querySelectorAll('tbody td')[1].classList.contains('mp-col-hidden')).toBe(true);
+    expect(
+      b.querySelectorAll('thead th')[1].classList.contains('mp-col-hidden'),
+    ).toBe(true);
+    expect(
+      b.querySelectorAll('tbody td')[1].classList.contains('mp-col-hidden'),
+    ).toBe(true);
     const chip = b.querySelector('.mp-col-rail .mp-chip');
     expect(chip).not.toBeNull();
     expect(chip.textContent).toBe('Qty');
 
     applyTableState(b, toggleColumnHidden(state, 0, 1));
-    expect(b.querySelectorAll('thead th')[1].classList.contains('mp-col-hidden')).toBe(false);
+    expect(
+      b.querySelectorAll('thead th')[1].classList.contains('mp-col-hidden'),
+    ).toBe(false);
     expect(b.querySelector('.mp-col-rail .mp-chip')).toBeNull();
   });
 

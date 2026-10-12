@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
 import Library from './components/Library';
@@ -8,17 +9,27 @@ import SettingsPage from './components/SettingsPage';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
-import { isFsaSupported, pickSingleFile, pickFolder, requestPermission, listMdFiles, readFileText, saveFileText } from './lib/fs-access';
+import {
+  pickSingleFile,
+  pickFolder,
+  requestPermission,
+  listMdFiles,
+  readFileText,
+  saveFileText,
+} from './lib/fs-access';
 
 const history = createHistory();
 const THEME_KEY = 'mdpv-theme';
 const ACCENT_KEY = 'mdpv-accent';
-const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+const MONO_STACK =
+  'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 const FONT_KEY = 'mdpv-editor-font';
 const WIDTH_KEY = 'mdpv-width';
 const VIEWMODE_KEY = 'mdpv-viewmode';
 const SCOPE_KEY = 'mdpv-searchscope';
 const EXCLUDES_KEY = 'mdpv-excludes';
+const HISTORY_LIMIT_KEY = 'mdpv-history-limit';
+const HISTORY_LIMIT_OPTIONS = [5, 10, 20, 50];
 const FONT_OPTIONS = [
   { label: 'Monospace (default)', value: MONO_STACK },
   { label: 'Menlo', value: 'Menlo, monospace' },
@@ -28,7 +39,10 @@ const FONT_OPTIONS = [
   { label: 'JetBrains Mono', value: '"JetBrains Mono", Menlo, monospace' },
   { label: 'Iosevka', value: 'Iosevka, monospace' },
   { label: 'Courier New', value: '"Courier New", monospace' },
-  { label: 'Google Sans Flex', value: "'Google Sans Flex', 'Google Sans', Roboto, sans-serif" },
+  {
+    label: 'Google Sans Flex',
+    value: "'Google Sans Flex', 'Google Sans', Roboto, sans-serif",
+  },
   { label: 'Georgia', value: 'Georgia, serif' },
 ];
 const WIDTH_OPTIONS = [
@@ -38,7 +52,11 @@ const WIDTH_OPTIONS = [
 ];
 
 function loadStored(key, fallback) {
-  try { return localStorage.getItem(key) || fallback; } catch (_) { return fallback; }
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch (_) {
+    return fallback;
+  }
 }
 
 function loadExcludes() {
@@ -47,27 +65,87 @@ function loadExcludes() {
   return parseRules(raw);
 }
 
+function loadHistoryLimit() {
+  const limit = Number(loadStored(HISTORY_LIMIT_KEY, '20'));
+  return HISTORY_LIMIT_OPTIONS.includes(limit) ? limit : 20;
+}
+
+function transitionPage(update, direction) {
+  if (
+    typeof document.startViewTransition !== 'function' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    update();
+    return;
+  }
+
+  document.documentElement.dataset.navigation = direction;
+  const transition = document.startViewTransition(() => flushSync(update));
+  transition.finished.then(
+    () => {
+      delete document.documentElement.dataset.navigation;
+    },
+    () => {
+      delete document.documentElement.dataset.navigation;
+    },
+  );
+}
+
 export default function App() {
-  const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'light'));
-  const [accent, setAccent] = useState(() => loadStored(ACCENT_KEY, '') || null);
-  const [view, setView] = useState('picker'); // picker | library | preview
-  const [folder, setFolder] = useState(null);   // { name, handle }
+  const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'system'));
+  const [accent, setAccent] = useState(
+    () => loadStored(ACCENT_KEY, '') || null,
+  );
+  const [view, setView] = useState(() =>
+    window.location.pathname === '/settings' ? 'settings' : 'picker',
+  ); // picker | library | preview | settings
+  const [folder, setFolder] = useState(null); // { name, handle }
   const [files, setFiles] = useState([]);
   const [historyList, setHistoryList] = useState([]);
-  const [active, setActive] = useState(null);   // { name, path, handle }
+  const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
+  const historyLimitRef = useRef(historyLimit);
+  const [active, setActive] = useState(null); // { name, path, handle }
   const [text, setText] = useState('');
   const [notice, setNotice] = useState('');
   const [indexed, setIndexed] = useState(0);
-  const [mode, setMode] = useState('preview');  // preview | edit
-  const [editorFont, setEditorFont] = useState(() => loadStored(FONT_KEY, MONO_STACK));
-  const [widthMode, setWidthMode] = useState(() => loadStored(WIDTH_KEY, 'normal'));
-  const [viewMode, setViewMode] = useState(() => loadStored(VIEWMODE_KEY, 'grid')); // grid | list
+  const [mode, setMode] = useState('preview'); // preview | edit
+  const [editorFont, setEditorFont] = useState(() =>
+    loadStored(FONT_KEY, MONO_STACK),
+  );
+  const [widthMode, setWidthMode] = useState(() =>
+    loadStored(WIDTH_KEY, 'normal'),
+  );
+  const [viewMode, setViewMode] = useState(() =>
+    loadStored(VIEWMODE_KEY, 'grid'),
+  ); // grid | list
   const [scope, setScope] = useState(() => loadStored(SCOPE_KEY, 'name')); // name | content
   const [excludes, setExcludes] = useState(loadExcludes);
   const [query, setQuery] = useState('');
   const [showRecents, setShowRecents] = useState(false);
   const cacheRef = useRef(new Map());
   const settingsReturnRef = useRef('picker');
+  const settingsEntryRef = useRef(false);
+  const initialHistoryLimitRef = useRef(historyLimit);
+  const viewRef = useRef(view);
+  const historyLimitRequestRef = useRef(0);
+  viewRef.current = view;
+
+  useEffect(() => {
+    function onPopState() {
+      const isSettings = window.location.pathname === '/settings';
+      if (isSettings) {
+        if (viewRef.current !== 'settings')
+          settingsReturnRef.current = viewRef.current;
+        settingsEntryRef.current = Boolean(window.history.state?.mdpvSettings);
+        transitionPage(() => setView('settings'), 'forward');
+      } else {
+        settingsEntryRef.current = false;
+        transitionPage(() => setView(settingsReturnRef.current), 'back');
+      }
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -90,10 +168,24 @@ export default function App() {
       root.style.removeProperty('--accent');
       root.style.removeProperty('--accent-fg');
     }
-    try { localStorage.setItem(ACCENT_KEY, accent || ''); } catch (_) { /* ignore */ }
+    try {
+      localStorage.setItem(ACCENT_KEY, accent || '');
+    } catch (_) {
+      /* ignore */
+    }
   }, [accent]);
 
-  useEffect(() => { history.list().then(setHistoryList); }, []);
+  useEffect(() => {
+    history
+      .trim(initialHistoryLimitRef.current)
+      .then(setHistoryList)
+      .catch(() =>
+        history
+          .list(initialHistoryLimitRef.current)
+          .then(setHistoryList)
+          .catch(() => {}),
+      );
+  }, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -102,39 +194,76 @@ export default function App() {
   }, [notice]);
 
   function goHome() {
-    setView('picker');
-    setFolder(null);
-    setFiles([]);
-    setActive(null);
-    setQuery('');
+    const wasSettings = viewRef.current === 'settings';
+    if (window.location.pathname === '/settings') {
+      window.history.replaceState({}, '', '/');
+      settingsEntryRef.current = false;
+    }
+    settingsReturnRef.current = 'picker';
+    const update = () => {
+      setView('picker');
+      setFolder(null);
+      setFiles([]);
+      setActive(null);
+      setQuery('');
+    };
+    if (wasSettings) transitionPage(update, 'back');
+    else update();
   }
 
   function pickViewMode(v) {
     setViewMode(v);
-    try { localStorage.setItem(VIEWMODE_KEY, v); } catch (_) { /* ignore */ }
+    try {
+      localStorage.setItem(VIEWMODE_KEY, v);
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function pickScope(s) {
     setScope(s);
-    try { localStorage.setItem(SCOPE_KEY, s); } catch (_) { /* ignore */ }
+    try {
+      localStorage.setItem(SCOPE_KEY, s);
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function openSettings() {
-    if (view !== 'settings') settingsReturnRef.current = view;
-    setView('settings');
+    if (view !== 'settings') {
+      settingsReturnRef.current = view;
+      if (window.location.pathname !== '/settings') {
+        window.history.pushState({ mdpvSettings: true }, '', '/settings');
+        settingsEntryRef.current = true;
+      }
+    }
+    transitionPage(() => setView('settings'), 'forward');
   }
 
   function closeSettings() {
-    setView(settingsReturnRef.current);
+    if (settingsEntryRef.current && window.location.pathname === '/settings') {
+      settingsEntryRef.current = false;
+      window.history.back();
+    } else {
+      if (window.location.pathname === '/settings')
+        window.history.replaceState({}, '', '/');
+      transitionPage(() => setView(settingsReturnRef.current), 'back');
+    }
   }
 
   async function applyExcludes(next) {
     setExcludes(next);
-    try { localStorage.setItem(EXCLUDES_KEY, JSON.stringify(next)); } catch (_) { /* ignore */ }
+    try {
+      localStorage.setItem(EXCLUDES_KEY, JSON.stringify(next));
+    } catch (_) {
+      /* ignore */
+    }
     if (folder && folder.handle) {
       try {
         setFiles(await listMdFiles(folder.handle, next));
-      } catch (_) { /* keep current list if the rescan fails */ }
+      } catch (_) {
+        /* keep current list if the rescan fails */
+      }
     }
   }
 
@@ -144,18 +273,23 @@ export default function App() {
     setFolder({ name, handle });
     setFiles(md);
     setActive(null);
-    setView('library');
+    transitionView('library');
     setIndexed(0);
     for (let i = 0; i < md.length; i++) {
       const f = md[i];
-      try { cacheRef.current.set(f.path, await readFileText(f.handle)); } catch (_) { /* skip unreadable */ }
+      try {
+        cacheRef.current.set(f.path, await readFileText(f.handle));
+      } catch (_) {
+        /* skip unreadable */
+      }
       setIndexed(i + 1);
     }
     setNotice('');
   }
 
   async function openEntry(entry) {
-    const t = cacheRef.current.get(entry.path) ?? await readFileText(entry.handle);
+    const t =
+      cacheRef.current.get(entry.path) ?? (await readFileText(entry.handle));
     if (!cacheRef.current.has(entry.path)) cacheRef.current.set(entry.path, t);
     if (folder) {
       const location = folder.name + (entry.path ? '/' + entry.path : '');
@@ -189,8 +323,61 @@ export default function App() {
   }
 
   async function persistHistory(handle, location) {
-    try { await history.add(handle, location); } catch (_) { /* persistence is best-effort */ }
-    try { setHistoryList(await history.list()); } catch (_) { /* ignore */ }
+    const request = historyLimitRequestRef.current;
+    try {
+      await history.add(handle, location, historyLimitRef.current);
+    } catch (_) {
+      /* persistence is best-effort */
+    }
+    if (request !== historyLimitRequestRef.current) return;
+    try {
+      const rows = await history.list(historyLimitRef.current);
+      if (request === historyLimitRequestRef.current) setHistoryList(rows);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  async function pickHistoryLimit(limit) {
+    if (!HISTORY_LIMIT_OPTIONS.includes(limit)) return;
+    const request = ++historyLimitRequestRef.current;
+    historyLimitRef.current = limit;
+    setHistoryLimit(limit);
+    try {
+      localStorage.setItem(HISTORY_LIMIT_KEY, String(limit));
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      const rows = await history.trim(limit);
+      if (request === historyLimitRequestRef.current) setHistoryList(rows);
+    } catch (_) {
+      try {
+        const rows = await history.list(limit);
+        if (request === historyLimitRequestRef.current) setHistoryList(rows);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+
+  function transitionView(nextView) {
+    if (viewRef.current === 'settings') {
+      settingsReturnRef.current = nextView;
+      if (
+        settingsEntryRef.current &&
+        window.location.pathname === '/settings'
+      ) {
+        settingsEntryRef.current = false;
+        window.history.back();
+        return;
+      }
+      if (window.location.pathname === '/settings')
+        window.history.replaceState({}, '', '/');
+      transitionPage(() => setView(nextView), 'back');
+      return;
+    }
+    setView(nextView);
   }
 
   async function onRemoveHistory(entry) {
@@ -204,7 +391,11 @@ export default function App() {
 
   async function onOpenHistory(h) {
     const granted = await requestPermission(h.handle);
-    if (!granted) { setNotice('Permission denied. Re-pick the folder or file.'); setView('picker'); return; }
+    if (!granted) {
+      setNotice('Permission denied. Re-pick the folder or file.');
+      transitionView('picker');
+      return;
+    }
     if (h.kind === 'directory') {
       await loadFolder(h.handle, h.name);
     } else {
@@ -213,12 +404,17 @@ export default function App() {
       setActive({ name: h.name, path: h.name, handle: h.handle });
       setText(await readFileText(h.handle));
       persistHistory(h.handle, h.location);
-      setView('preview');
+      transitionView('preview');
     }
   }
 
   async function onSave(markdown) {
-    if (!active || !active.handle || typeof active.handle.createWritable !== 'function') return;
+    if (
+      !active ||
+      !active.handle ||
+      typeof active.handle.createWritable !== 'function'
+    )
+      return;
     try {
       await saveFileText(active.handle, markdown);
       setNotice('Saved ✓');
@@ -229,38 +425,61 @@ export default function App() {
 
   function onBack() {
     setActive(null);
-    setView(folder ? 'library' : 'picker');
+    transitionView(folder ? 'library' : 'picker');
   }
 
-  const canSave = () => active && active.handle && typeof active.handle.createWritable === 'function';
+  const canSave = () =>
+    active &&
+    active.handle &&
+    typeof active.handle.createWritable === 'function';
 
   function pickFont(v) {
     setEditorFont(v);
-    try { localStorage.setItem(FONT_KEY, v); } catch (_) { /* ignore */ }
+    try {
+      localStorage.setItem(FONT_KEY, v);
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function cycleWidth() {
     setWidthMode((w) => {
-      const next = WIDTH_OPTIONS[(WIDTH_OPTIONS.findIndex((o) => o.key === w) + 1) % WIDTH_OPTIONS.length];
-      try { localStorage.setItem(WIDTH_KEY, next.key); } catch (_) { /* ignore */ }
+      const next =
+        WIDTH_OPTIONS[
+          (WIDTH_OPTIONS.findIndex((o) => o.key === w) + 1) %
+            WIDTH_OPTIONS.length
+        ];
+      try {
+        localStorage.setItem(WIDTH_KEY, next.key);
+      } catch (_) {
+        /* ignore */
+      }
       return next.key;
     });
   }
 
-  const doc = view === 'preview' && active ? {
-    title: active.name,
-    onBack,
-    mode,
-    onMode: setMode,
-    font: editorFont,
-    onFont: pickFont,
-    fontOptions: FONT_OPTIONS,
-    widthLabel: (WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0]).label,
-    widthIcon: { normal: 'width', wide: 'width_wide', wider: 'width_full' }[widthMode] || 'width',
-    onWidth: cycleWidth,
-    canSave: canSave(),
-    onSave: () => onSave(text),
-  } : null;
+  const doc =
+    view === 'preview' && active
+      ? {
+          title: active.name,
+          onBack,
+          mode,
+          onMode: setMode,
+          font: editorFont,
+          onFont: pickFont,
+          fontOptions: FONT_OPTIONS,
+          widthLabel: (
+            WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0]
+          ).label,
+          widthIcon:
+            { normal: 'width', wide: 'width_wide', wider: 'width_full' }[
+              widthMode
+            ] || 'width',
+          onWidth: cycleWidth,
+          canSave: canSave(),
+          onSave: () => onSave(text),
+        }
+      : null;
 
   return (
     <div className="app">
@@ -269,22 +488,24 @@ export default function App() {
         onHome={goHome}
         hasRecents={historyList.length > 0}
         onRecents={() => setShowRecents(true)}
-        onSettings={view === 'settings' ? null : openSettings}
-        library={view === 'library' ? {
-          query,
-          onQuery: setQuery,
-          viewMode,
-          onViewMode: pickViewMode,
-          scope,
-          onScope: pickScope,
-        } : null}
+        onSettings={view === 'settings' ? closeSettings : openSettings}
+        settingsActive={view === 'settings'}
+        library={
+          view === 'library'
+            ? {
+                query,
+                onQuery: setQuery,
+                viewMode,
+                onViewMode: pickViewMode,
+                scope,
+                onScope: pickScope,
+              }
+            : null
+        }
       />
 
       {view === 'picker' && (
-        <Picker
-          onPickFile={onPickSingleFile}
-          onPickFolder={onPickFolder}
-        />
+        <Picker onPickFile={onPickSingleFile} onPickFolder={onPickFolder} />
       )}
 
       {view === 'library' && (
@@ -306,12 +527,13 @@ export default function App() {
           rules={excludes}
           theme={theme}
           accent={accent}
+          historyLimit={historyLimit}
           onThemeSelect={setTheme}
           onAccentSelect={setAccent}
+          onHistoryLimitSelect={pickHistoryLimit}
           onAdd={(rule) => applyExcludes([...excludes, rule])}
           onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
           onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
-          onBack={closeSettings}
         />
       )}
 
@@ -323,16 +545,25 @@ export default function App() {
           theme={theme}
           folderHandle={folder ? folder.handle : null}
           mode={mode}
-          onMode={setMode}
           editorFont={editorFont}
-          widthVar={(WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0]).px}
+          widthVar={
+            (WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0])
+              .px
+          }
         />
       )}
 
       {showRecents && (
-        <div className="drawer-backdrop" onClick={() => setShowRecents(false)} aria-hidden="true" />
+        <div
+          className="drawer-backdrop"
+          onClick={() => setShowRecents(false)}
+          aria-hidden="true"
+        />
       )}
-      <aside className={`recents-drawer ${showRecents ? 'open' : ''}`} aria-label="Recent files and folders">
+      <aside
+        className={`recents-drawer ${showRecents ? 'open' : ''}`}
+        aria-label="Recent files and folders"
+      >
         <div className="drawer-header">
           <h2 className="drawer-title">Recent</h2>
           <button
@@ -340,7 +571,9 @@ export default function App() {
             onClick={() => setShowRecents(false)}
             aria-label="Close recent list"
           >
-            <span className="material-symbols-outlined" aria-hidden="true">close</span>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              close
+            </span>
           </button>
         </div>
         <div className="drawer-content">
@@ -355,7 +588,11 @@ export default function App() {
         </div>
       </aside>
 
-      {notice && <div className="toast" onClick={() => setNotice('')}>{notice}</div>}
+      {notice && (
+        <div className="toast" onClick={() => setNotice('')}>
+          {notice}
+        </div>
+      )}
     </div>
   );
 }

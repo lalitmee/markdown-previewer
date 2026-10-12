@@ -12,7 +12,10 @@ export function setColumnWidth(state, tableIndex, colIndex, width) {
     ...state,
     [tableIndex]: {
       ...table,
-      widths: { ...(table.widths || {}), [colIndex]: Math.max(24, Math.round(width)) },
+      widths: {
+        ...(table.widths || {}),
+        [colIndex]: Math.max(24, Math.round(width)),
+      },
     },
   };
 }
@@ -70,7 +73,10 @@ export function decorateTables(bodyEl) {
       hide.dataset.t = t;
       hide.dataset.c = c;
       hide.title = 'Hide column';
-      hide.setAttribute('aria-label', `Hide column ${th.dataset.label || c + 1}`);
+      hide.setAttribute(
+        'aria-label',
+        `Hide column ${th.dataset.label || c + 1}`,
+      );
       const ico = document.createElement('span');
       ico.className = 'material-symbols-outlined';
       ico.setAttribute('aria-hidden', 'true');
@@ -125,7 +131,8 @@ export function applyTableState(bodyEl, state) {
     // table instead of squeezing its neighbours; the wrap scrolls horizontally.
     // Until then keep the base width:100% so untouched tables still fill.
     const visible = cols.map((_, c) => c).filter((c) => !hidden[c]);
-    const pinned = visible.length > 0 && visible.every((c) => widths[c] != null);
+    const pinned =
+      visible.length > 0 && visible.every((c) => widths[c] != null);
     table.style.width = pinned
       ? visible.reduce((sum, c) => sum + widths[c], 0) + 'px'
       : '';
@@ -134,17 +141,20 @@ export function applyTableState(bodyEl, state) {
     if (!rail) return;
     rail.innerHTML = '';
     const headers = table.querySelectorAll('thead th');
-    Object.keys(hidden).map(Number).sort((a, b) => a - b).forEach((c) => {
-      const label = headers[c] ? headers[c].dataset.label : '';
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'mp-chip';
-      chip.dataset.t = t;
-      chip.dataset.c = c;
-      chip.title = 'Show column';
-      chip.setAttribute('aria-label', `Show column ${label || c + 1}`);
-      chip.textContent = label || String(c + 1);
-      rail.appendChild(chip);
-    });
+    Object.keys(hidden)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .forEach((c) => {
+        const label = headers[c] ? headers[c].dataset.label : '';
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'mp-chip';
+        chip.dataset.t = t;
+        chip.dataset.c = c;
+        chip.title = 'Show column';
+        chip.setAttribute('aria-label', `Show column ${label || c + 1}`);
+        chip.textContent = label || String(c + 1);
+        rail.appendChild(chip);
+      });
   });
 }

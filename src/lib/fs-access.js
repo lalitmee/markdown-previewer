@@ -2,18 +2,23 @@ import { isMarkdownName } from './search';
 import { shouldExclude } from './excludes';
 
 export function isFsaSupported() {
-  return typeof window !== 'undefined' &&
-    'showDirectoryPicker' in window && 'showOpenFilePicker' in window;
+  return (
+    typeof window !== 'undefined' &&
+    'showDirectoryPicker' in window &&
+    'showOpenFilePicker' in window
+  );
 }
 
 export async function pickSingleFile() {
   try {
     const [handle] = await window.showOpenFilePicker({
       multiple: false,
-      types: [{
-        description: 'Markdown files',
-        accept: { 'text/markdown': ['.md', '.markdown', '.mdown', '.mkd'] },
-      }],
+      types: [
+        {
+          description: 'Markdown files',
+          accept: { 'text/markdown': ['.md', '.markdown', '.mdown', '.mkd'] },
+        },
+      ],
     });
     return handle;
   } catch (err) {
@@ -33,8 +38,10 @@ export async function pickFolder() {
 
 export async function requestPermission(handle, readwrite = false) {
   const opts = { mode: readwrite ? 'readwrite' : 'read' };
-  return handle.queryPermission(opts) === 'granted' ||
-         (await handle.requestPermission(opts)) === 'granted';
+  return (
+    handle.queryPermission(opts) === 'granted' ||
+    (await handle.requestPermission(opts)) === 'granted'
+  );
 }
 
 function readHandleFile(handle) {
@@ -59,7 +66,8 @@ export async function listMdFiles(dirHandle, rules = []) {
       const path = prefix ? prefix + '/' + entry.name : entry.name;
       if (shouldExclude(path, rules)) continue;
       if (entry.kind === 'file') {
-        if (isMarkdownName(entry.name)) out.push({ name: entry.name, path, handle: entry });
+        if (isMarkdownName(entry.name))
+          out.push({ name: entry.name, path, handle: entry });
       } else if (entry.kind === 'directory') {
         await walk(entry, path);
       }
@@ -110,11 +118,13 @@ export async function inlineImages(html, folderHandle, activePath) {
   const container = document.createElement('div');
   container.innerHTML = html;
   const imgs = Array.from(container.querySelectorAll('img'));
-  await Promise.all(imgs.map(async (img) => {
-    const src = img.getAttribute('src');
-    const data = await readImageDataUrl(folderHandle, dirOf(activePath), src);
-    if (data) img.setAttribute('src', data);
-  }));
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.getAttribute('src');
+      const data = await readImageDataUrl(folderHandle, dirOf(activePath), src);
+      if (data) img.setAttribute('src', data);
+    }),
+  );
   return container.innerHTML;
 }
 
@@ -125,7 +135,8 @@ function dirOf(path) {
 
 function resolveRelFrom(baseDir, src) {
   const clean = String(src || '').split(/[?#]/, 1)[0];
-  if (!clean.trim() || /^(?:[a-z][a-z\d+.-]*:|\/|\\\\)/i.test(clean)) return null;
+  if (!clean.trim() || /^(?:[a-z][a-z\d+.-]*:|\/|\\\\)/i.test(clean))
+    return null;
 
   let decoded;
   try {
@@ -134,7 +145,8 @@ function resolveRelFrom(baseDir, src) {
     return null;
   }
 
-  const parts = `${baseDir ? baseDir + '/' : ''}${decoded.replace(/\\/g, '/')}`.split('/');
+  const parts =
+    `${baseDir ? baseDir + '/' : ''}${decoded.replace(/\\/g, '/')}`.split('/');
   const out = [];
   for (const p of parts) {
     if (!p || p === '.') continue;
