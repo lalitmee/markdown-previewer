@@ -367,7 +367,7 @@ body {
   gap: 12px;
   margin-top: 12px;
 }
-.paste-footer span {
+.paste-footer > span {
   color: var(--mut);
   font-size: 12px;
 }

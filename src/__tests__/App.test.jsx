@@ -66,6 +66,23 @@ afterEach(async () => {
 });
 
 describe('pasted Markdown', () => {
+  it('animates between the start screen and paste editor', async () => {
+    const directions = [];
+    document.startViewTransition = vi.fn((update) => {
+      directions.push(document.documentElement.dataset.navigation);
+      update();
+      return { finished: Promise.resolve() };
+    });
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+    expect(host.querySelector('#pasted-markdown')).not.toBeNull();
+    await act(async () => host.querySelector('[aria-label="Go home"]').click());
+
+    expect(directions).toEqual(['forward', 'back']);
+    expect(host.querySelector('#pasted-markdown')).toBeNull();
+  });
+
   it('renders pasted text without a file and returns to its editor on back', async () => {
     await act(async () => root.render(createElement(App)));
     await act(async () => host.querySelector('.dz-actions button').click());
@@ -73,6 +90,9 @@ describe('pasted Markdown', () => {
     const input = host.querySelector('#pasted-markdown');
     expect(input).not.toBeNull();
     expect(host.querySelector('.paste-footer button').disabled).toBe(true);
+    expect(host.querySelector('.paste-footer button').textContent).toContain(
+      'Preview',
+    );
     await act(async () => {
       Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,

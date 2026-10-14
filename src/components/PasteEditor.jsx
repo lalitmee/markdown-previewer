@@ -29,7 +29,7 @@ export default function PasteEditor({ draft, onDraftChange, onPreview }) {
               <span className="material-symbols-outlined btn-ico">
                 visibility
               </span>{' '}
-              Preview Markdown
+              Preview
             </button>
           </div>
         </form>
