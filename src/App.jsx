@@ -105,6 +105,8 @@ export default function App() {
   const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
   const historyLimitRef = useRef(historyLimit);
   const [active, setActive] = useState(null); // { name, path, handle }
+  const [activeRevision, setActiveRevision] = useState(0);
+  const [tableState, setTableState] = useState({});
   const [text, setText] = useState('');
   const [notice, setNotice] = useState('');
   const [indexed, setIndexed] = useState(0);
@@ -298,6 +300,8 @@ export default function App() {
       persistHistory(entry.handle);
     }
     setActive(entry);
+    setActiveRevision((revision) => revision + 1);
+    setTableState({});
     setText(t);
     setView('preview');
   }
@@ -318,6 +322,8 @@ export default function App() {
     setFiles([]);
     cacheRef.current.set(handle.name, t);
     setActive({ name: handle.name, path: handle.name, handle });
+    setActiveRevision((revision) => revision + 1);
+    setTableState({});
     setText(t);
     setView('preview');
   }
@@ -402,6 +408,8 @@ export default function App() {
       setFolder(null);
       setFiles([]);
       setActive({ name: h.name, path: h.name, handle: h.handle });
+      setActiveRevision((revision) => revision + 1);
+      setTableState({});
       setText(await readFileText(h.handle));
       persistHistory(h.handle, h.location);
       transitionView('preview');
@@ -539,9 +547,12 @@ export default function App() {
 
       {view === 'preview' && (
         <Preview
+          key={activeRevision}
           entry={active}
           text={text}
           setText={setText}
+          tableState={tableState}
+          setTableState={setTableState}
           theme={theme}
           folderHandle={folder ? folder.handle : null}
           mode={mode}

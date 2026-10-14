@@ -1,22 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
 import { renderMarkdown } from '../lib/markdown';
 import { inlineImages } from '../lib/fs-access';
-import {
-  applyTableState,
-  decorateTables,
-  setColumnWidth,
-  setColumnWidths,
-  toggleColumnHidden,
-} from '../lib/tableColumns';
+import { applyTableState, decorateTables } from '../lib/tableColumns';
+import TableModal from './TableModal';
 import ZoomModal from './ZoomModal';
 
 export default function Preview({
   entry,
   text,
   setText,
+  tableState,
+  setTableState,
   theme,
   folderHandle,
   mode,
@@ -25,8 +22,17 @@ export default function Preview({
 }) {
   const [html, setHtml] = useState('');
   const [zoomSvg, setZoomSvg] = useState(null);
-  const [tableState, setTableState] = useState({});
+  const [expandedTable, setExpandedTable] = useState(null);
   const previewRef = useRef(null);
+
+  const expandedHtml = useMemo(() => {
+    if (expandedTable === null) return '';
+    const source = document.createElement('div');
+    source.innerHTML = html;
+    return (
+      source.querySelectorAll('table')[expandedTable.index]?.outerHTML || ''
+    );
+  }, [html, expandedTable]);
 
   const fontTheme = EditorView.theme({
     '.cm-content': { fontFamily: editorFont },
@@ -53,75 +59,18 @@ export default function Preview({
   // html + mode only, so a column drag never rebuilds the handles it holds.
   useEffect(() => {
     if (!previewRef.current) return;
-    previewRef.current.querySelectorAll('.md-body').forEach(decorateTables);
+    previewRef.current
+      .querySelectorAll('.preview-document .md-body')
+      .forEach((body) => decorateTables(body, { interactive: false }));
   }, [html, mode]);
 
   // Apply pass: cheap, runs after the structural pass and on every state change.
   useEffect(() => {
     if (!previewRef.current) return;
     previewRef.current
-      .querySelectorAll('.md-body')
+      .querySelectorAll('.preview-document .md-body')
       .forEach((b) => applyTableState(b, tableState));
   }, [tableState, html, mode]);
-
-  function onPointerDown(e) {
-    const handle = e.target.closest('.mp-resize');
-    if (!handle) return;
-    e.preventDefault();
-    const t = Number(handle.dataset.t);
-    const c = Number(handle.dataset.c);
-    const startX = e.clientX;
-    // Freeze every visible column at its current rendered width. The table is
-    // then pinned to the sum of those widths, so dragging one handle only
-    // changes that column and widens the table (the wrap scrolls) rather than
-    // squeezing the others.
-    const freeze = {};
-    handle
-      .closest('table')
-      .querySelectorAll('thead th')
-      .forEach((th, i) => {
-        if (th.classList.contains('mp-col-hidden')) return;
-        const w = Math.round(th.getBoundingClientRect().width);
-        if (w > 0) freeze[i] = w;
-      });
-    const startW =
-      freeze[c] ?? handle.parentElement.getBoundingClientRect().width;
-    setTableState((s) => setColumnWidths(s, t, freeze));
-    // The table can grow wider than the pane; the scroll box clips it, which
-    // would hide the dragged handle. While resizing, keep that handle in view:
-    // pin the scroll to the right when dragging the last visible column (the
-    // reported case), and otherwise nudge the scroll as the pointer nears an edge.
-    const scroller = handle.closest('.mp-table-scroll');
-    const ths = Array.from(
-      handle.closest('table').querySelectorAll('thead th'),
-    );
-    const isLast =
-      ths.filter((th) => !th.classList.contains('mp-col-hidden')).pop() ===
-      handle.closest('th');
-    const onMove = (ev) => {
-      setTableState((s) =>
-        setColumnWidth(s, t, c, startW + (ev.clientX - startX)),
-      );
-      // React commits the new width after this handler, so adjust the scroll on
-      // the next frame (when scrollWidth reflects it) to keep the handle in view.
-      requestAnimationFrame(() => {
-        if (!scroller) return;
-        if (isLast) {
-          scroller.scrollLeft = scroller.scrollWidth;
-          return;
-        }
-        const r = scroller.getBoundingClientRect();
-        if (ev.clientX > r.right - 28) scroller.scrollLeft += 6;
-        else if (ev.clientX < r.left + 28) scroller.scrollLeft -= 6;
-      });
-    };
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }
 
   function onClick(e) {
     const diagram = e.target.closest('.mdiagram');
@@ -134,15 +83,9 @@ export default function Preview({
       }
       return;
     }
-    const toggle = e.target.closest('.mp-hide, .mp-chip');
-    if (toggle) {
-      setTableState((s) =>
-        toggleColumnHidden(
-          s,
-          Number(toggle.dataset.t),
-          Number(toggle.dataset.c),
-        ),
-      );
+    const expand = e.target.closest('.mp-expand');
+    if (expand) {
+      setExpandedTable({ index: Number(expand.dataset.t), opener: expand });
     }
   }
 
@@ -151,29 +94,41 @@ export default function Preview({
       className="preview-page"
       style={{ ['--md-maxw']: widthVar }}
       ref={previewRef}
-      onPointerDown={onPointerDown}
       onClick={onClick}
     >
-      {mode === 'edit' ? (
-        <div className="split">
-          <div className="split-left">
-            <CodeMirror
-              value={text}
-              onChange={(v) => setText(v)}
-              extensions={extensions}
-              theme={theme === 'dark' ? 'dark' : 'light'}
-              height="100%"
-            />
+      <div className="preview-document">
+        {mode === 'edit' ? (
+          <div className="split">
+            <div className="split-left">
+              <CodeMirror
+                value={text}
+                onChange={(v) => setText(v)}
+                extensions={extensions}
+                theme={theme === 'dark' ? 'dark' : 'light'}
+                height="100%"
+              />
+            </div>
+            <div className="split-right">
+              <div
+                className="md-body"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            </div>
           </div>
-          <div className="split-right">
-            <div
-              className="md-body"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
+        ) : (
+          <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
+        )}
+      </div>
+
+      {expandedTable !== null && expandedHtml && (
+        <TableModal
+          tableHtml={expandedHtml}
+          tableIndex={expandedTable.index}
+          tableState={tableState}
+          setTableState={setTableState}
+          opener={expandedTable.opener}
+          onClose={() => setExpandedTable(null)}
+        />
       )}
 
       <ZoomModal svgHtml={zoomSvg} onClose={() => setZoomSvg(null)} />
