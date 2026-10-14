@@ -65,6 +65,39 @@ afterEach(async () => {
   delete globalThis.IS_REACT_ACT_ENVIRONMENT;
 });
 
+describe('pasted Markdown', () => {
+  it('renders pasted text without a file and restores the draft on back', async () => {
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+
+    const input = host.querySelector('#pasted-markdown');
+    expect(input).not.toBeNull();
+    expect(host.querySelector('.paste-footer button').disabled).toBe(true);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# Pasted heading');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+
+    expect(host.querySelector('.file-title').textContent).toBe(
+      'Pasted Markdown',
+    );
+    expect(host.querySelector('.md-body h1').textContent).toBe(
+      'Pasted heading',
+    );
+    expect(host.querySelector('[aria-label="Save"]')).toBeNull();
+    expect(historyMock.add).not.toHaveBeenCalled();
+
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(host.querySelector('#pasted-markdown').value).toBe(
+      '# Pasted heading',
+    );
+  });
+});
+
 describe('App recent-item limit', () => {
   it('loads the saved limit, trims existing entries, and applies a changed limit', async () => {
     localStorage.setItem('mdpv-history-limit', '10');

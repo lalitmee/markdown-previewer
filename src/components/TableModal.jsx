@@ -9,6 +9,7 @@ import {
   setColumnWidths,
   toggleColumnHidden,
 } from '../lib/tableColumns';
+import { positionFilterMenu } from '../lib/filterMenuPosition';
 
 export default function TableModal({
   tableHtml,
@@ -85,6 +86,20 @@ export default function TableModal({
     if (menuOpen) searchRef.current?.focus();
   }, [menuOpen, menu?.colIndex]);
 
+  useLayoutEffect(() => {
+    if (!menu || menu.left !== null) return;
+    const anchor = menu.anchor;
+    if (!anchor.isConnected || !menuRef.current || !dialogRef.current) return;
+    const position = positionFilterMenu(
+      anchor.getBoundingClientRect(),
+      dialogRef.current.getBoundingClientRect(),
+      menuRef.current.getBoundingClientRect(),
+    );
+    setMenu((current) =>
+      current?.anchor === anchor ? { ...current, ...position } : current,
+    );
+  }, [menu]);
+
   useEffect(() => {
     if (!menu) return;
     const closeOnOutsideClick = (event) => {
@@ -99,6 +114,18 @@ export default function TableModal({
     return () =>
       document.removeEventListener('pointerdown', closeOnOutsideClick);
   }, [menu]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const reposition = () =>
+      setMenu((current) =>
+        current
+          ? { ...current, left: null, top: null, maxHeight: undefined }
+          : current,
+      );
+    window.addEventListener('resize', reposition);
+    return () => window.removeEventListener('resize', reposition);
+  }, [menuOpen]);
 
   function onKeyDown(event) {
     if (event.key === 'Escape') {
@@ -194,25 +221,15 @@ export default function TableModal({
     const colIndex = Number(filter.dataset.c);
     const options = getColumnValues(filter.closest('table'), colIndex);
     const existing = tableState[tableIndex]?.filters?.[colIndex];
-    const bounds = filter.getBoundingClientRect();
-    const width = Math.min(300, window.innerWidth - 32);
-    const left = Math.max(
-      16,
-      Math.min(bounds.left, window.innerWidth - width - 16),
-    );
-    const top =
-      bounds.bottom + 370 < window.innerHeight
-        ? bounds.bottom + 6
-        : Math.max(16, bounds.top - 370);
     setMenu({
       colIndex,
       label: filter.closest('th').dataset.label || `Column ${colIndex + 1}`,
       options,
       selected: new Set(existing ?? options),
       query: '',
-      left,
-      top,
-      width,
+      left: null,
+      top: null,
+      width: Math.min(300, dialogRef.current.clientWidth - 32),
       anchor: filter,
     });
   }
@@ -330,7 +347,13 @@ export default function TableModal({
           <div
             className="mp-filter-menu"
             ref={menuRef}
-            style={{ left: menu.left, top: menu.top, width: menu.width }}
+            style={{
+              left: menu.left ?? 0,
+              top: menu.top ?? 0,
+              width: menu.width,
+              maxHeight: menu.maxHeight,
+              visibility: menu.left === null ? 'hidden' : 'visible',
+            }}
             role="group"
             aria-label={`Filter ${menu.label}`}
           >
@@ -354,6 +377,8 @@ export default function TableModal({
                   setMenu((current) => ({
                     ...current,
                     query: event.target.value,
+                    left: null,
+                    top: null,
                   }))
                 }
               />

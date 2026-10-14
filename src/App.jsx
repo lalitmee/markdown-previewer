@@ -108,6 +108,7 @@ export default function App() {
   const [activeRevision, setActiveRevision] = useState(0);
   const [tableState, setTableState] = useState({});
   const [text, setText] = useState('');
+  const [pastedDraft, setPastedDraft] = useState('');
   const [notice, setNotice] = useState('');
   const [indexed, setIndexed] = useState(0);
   const [mode, setMode] = useState('preview'); // preview | edit
@@ -328,6 +329,18 @@ export default function App() {
     setView('preview');
   }
 
+  function onPreviewPastedMarkdown() {
+    if (!pastedDraft.trim()) return;
+    setFolder(null);
+    setFiles([]);
+    setActive({ name: 'Pasted Markdown', path: '', handle: null });
+    setActiveRevision((revision) => revision + 1);
+    setTableState({});
+    setText(pastedDraft);
+    setMode('preview');
+    setView('preview');
+  }
+
   async function persistHistory(handle, location) {
     const request = historyLimitRequestRef.current;
     try {
@@ -432,6 +445,7 @@ export default function App() {
   }
 
   function onBack() {
+    if (active && !active.handle) setPastedDraft(text);
     setActive(null);
     transitionView(folder ? 'library' : 'picker');
   }
@@ -513,7 +527,13 @@ export default function App() {
       />
 
       {view === 'picker' && (
-        <Picker onPickFile={onPickSingleFile} onPickFolder={onPickFolder} />
+        <Picker
+          onPickFile={onPickSingleFile}
+          onPickFolder={onPickFolder}
+          pastedDraft={pastedDraft}
+          onPastedDraftChange={setPastedDraft}
+          onPreviewPastedMarkdown={onPreviewPastedMarkdown}
+        />
       )}
 
       {view === 'library' && (

@@ -326,6 +326,60 @@ body {
   background: var(--card);
   transition: border-color 0.15s;
 }
+.dropzone-paste {
+  max-width: 680px;
+}
+.paste-form {
+  margin: 22px 0 24px;
+  text-align: left;
+}
+.paste-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.paste-form textarea {
+  display: block;
+  width: 100%;
+  min-height: min(38vh, 300px);
+  padding: 15px 16px;
+  resize: vertical;
+  border: 1px solid var(--bor);
+  border-radius: 10px;
+  outline: none;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.paste-form textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.paste-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.paste-footer span {
+  color: var(--mut);
+  font-size: 12px;
+}
+.paste-footer .btn {
+  flex-shrink: 0;
+}
+@media (max-width: 520px) {
+  .paste-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 .dz-emoji {
   font-size: 56px;
   margin-bottom: 8px;
@@ -1315,7 +1369,7 @@ body {
   z-index: 1;
 }
 .mp-filter-menu {
-  position: fixed;
+  position: absolute;
   z-index: 130;
   display: flex;
   flex-direction: column;
