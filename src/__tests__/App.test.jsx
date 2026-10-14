@@ -79,7 +79,7 @@ describe('pasted Markdown', () => {
     expect(host.querySelector('#pasted-markdown')).not.toBeNull();
     await act(async () => host.querySelector('[aria-label="Go home"]').click());
 
-    expect(directions).toEqual(['forward', 'back']);
+    expect(directions).toEqual(['paste-forward', 'paste-back']);
     expect(host.querySelector('#pasted-markdown')).toBeNull();
   });
 

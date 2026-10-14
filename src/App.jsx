@@ -213,7 +213,7 @@ export default function App() {
       setQuery('');
     };
     if (wasSettings || viewRef.current === 'paste')
-      transitionPage(update, 'back');
+      transitionPage(update, wasSettings ? 'back' : 'paste-back');
     else update();
   }
 
@@ -534,7 +534,9 @@ export default function App() {
         <Picker
           onPickFile={onPickSingleFile}
           onPickFolder={onPickFolder}
-          onPaste={() => transitionPage(() => setView('paste'), 'forward')}
+          onPaste={() =>
+            transitionPage(() => setView('paste'), 'paste-forward')
+          }
         />
       )}
 

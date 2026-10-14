@@ -1869,6 +1869,42 @@ body {
 :root[data-navigation='back']::view-transition-new(root) {
   animation-name: route-enter-from-left;
 }
+@keyframes paste-zoom-in-old {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+@keyframes paste-zoom-in-new {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes paste-zoom-out-old {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes paste-zoom-out-new {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+:root[data-navigation='paste-forward']::view-transition-old(root) {
+  animation: 260ms ease-in both paste-zoom-in-old;
+}
+:root[data-navigation='paste-forward']::view-transition-new(root) {
+  animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both paste-zoom-in-new;
+}
+:root[data-navigation='paste-back']::view-transition-old(root) {
+  animation: 260ms ease-in both paste-zoom-out-old;
+}
+:root[data-navigation='paste-back']::view-transition-new(root) {
+  animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both paste-zoom-out-new;
+}
 @media (prefers-reduced-motion: reduce) {
   .table-overlay,
   .table-overlay.is-closing,
