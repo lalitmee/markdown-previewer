@@ -66,7 +66,7 @@ afterEach(async () => {
 });
 
 describe('pasted Markdown', () => {
-  it('renders pasted text without a file and restores the draft on back', async () => {
+  it('renders pasted text without a file and returns to its editor on back', async () => {
     await act(async () => root.render(createElement(App)));
     await act(async () => host.querySelector('.dz-actions button').click());
 
@@ -92,6 +92,19 @@ describe('pasted Markdown', () => {
     expect(historyMock.add).not.toHaveBeenCalled();
 
     await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(host.querySelector('#pasted-markdown').value).toBe(
+      '# Pasted heading',
+    );
+    expect(host.querySelector('.dropzone h1').textContent).toBe(
+      'Paste Markdown',
+    );
+
+    await act(async () => host.querySelector('[aria-label="Go home"]').click());
+    expect(host.querySelector('#pasted-markdown')).toBeNull();
+    expect(host.querySelector('.dropzone h1').textContent).toBe(
+      'View & edit your markdown',
+    );
+    await act(async () => host.querySelector('.dz-actions button').click());
     expect(host.querySelector('#pasted-markdown').value).toBe(
       '# Pasted heading',
     );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
+import PasteEditor from './components/PasteEditor';
 import Library from './components/Library';
 import Preview from './components/Preview';
 import HistorySection from './components/HistorySection';
@@ -98,7 +99,7 @@ export default function App() {
   );
   const [view, setView] = useState(() =>
     window.location.pathname === '/settings' ? 'settings' : 'picker',
-  ); // picker | library | preview | settings
+  ); // picker | paste | library | preview | settings
   const [folder, setFolder] = useState(null); // { name, handle }
   const [files, setFiles] = useState([]);
   const [historyList, setHistoryList] = useState([]);
@@ -198,6 +199,7 @@ export default function App() {
 
   function goHome() {
     const wasSettings = viewRef.current === 'settings';
+    if (active && !active.handle) setPastedDraft(text);
     if (window.location.pathname === '/settings') {
       window.history.replaceState({}, '', '/');
       settingsEntryRef.current = false;
@@ -445,9 +447,10 @@ export default function App() {
   }
 
   function onBack() {
-    if (active && !active.handle) setPastedDraft(text);
+    const wasPasted = active && !active.handle;
+    if (wasPasted) setPastedDraft(text);
     setActive(null);
-    transitionView(folder ? 'library' : 'picker');
+    transitionView(wasPasted ? 'paste' : folder ? 'library' : 'picker');
   }
 
   const canSave = () =>
@@ -530,9 +533,15 @@ export default function App() {
         <Picker
           onPickFile={onPickSingleFile}
           onPickFolder={onPickFolder}
-          pastedDraft={pastedDraft}
-          onPastedDraftChange={setPastedDraft}
-          onPreviewPastedMarkdown={onPreviewPastedMarkdown}
+          onPaste={() => transitionView('paste')}
+        />
+      )}
+
+      {view === 'paste' && (
+        <PasteEditor
+          draft={pastedDraft}
+          onDraftChange={setPastedDraft}
+          onPreview={onPreviewPastedMarkdown}
         />
       )}
 
