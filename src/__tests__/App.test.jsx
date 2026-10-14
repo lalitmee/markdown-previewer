@@ -131,6 +131,51 @@ describe('pasted Markdown', () => {
   });
 });
 
+describe('drag and drop', () => {
+  function drop(item) {
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', {
+      value: { items: [item], files: [] },
+    });
+    host.querySelector('.dropzone').dispatchEvent(event);
+  }
+
+  it('opens a dropped Markdown file and returns to home', async () => {
+    await act(async () => root.render(createElement(App)));
+    const file = { name: 'notes.md', text: async () => '# Dropped file' };
+    const handle = { kind: 'file', name: file.name, getFile: async () => file };
+    await act(async () =>
+      drop({
+        kind: 'file',
+        getAsFileSystemHandle: () => Promise.resolve(handle),
+        getAsFile: () => file,
+      }),
+    );
+
+    expect(host.querySelector('.file-title').textContent).toBe('notes.md');
+    expect(host.querySelector('.md-body h1').textContent).toBe('Dropped file');
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(host.querySelector('#pasted-markdown')).toBeNull();
+    expect(host.querySelector('.dropzone h1').textContent).toBe(
+      'View & edit your markdown',
+    );
+  });
+
+  it('opens a dropped folder in the library', async () => {
+    await act(async () => root.render(createElement(App)));
+    const handle = { kind: 'directory', name: 'docs' };
+    await act(async () =>
+      drop({
+        kind: 'file',
+        getAsFileSystemHandle: () => Promise.resolve(handle),
+        getAsFile: () => null,
+      }),
+    );
+    expect(host.querySelector('.library')).not.toBeNull();
+    expect(historyMock.add).toHaveBeenCalled();
+  });
+});
+
 describe('App recent-item limit', () => {
   it('loads the saved limit, trims existing entries, and applies a changed limit', async () => {
     localStorage.setItem('mdpv-history-limit', '10');

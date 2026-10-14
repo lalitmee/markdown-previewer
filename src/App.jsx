@@ -10,6 +10,7 @@ import SettingsPage from './components/SettingsPage';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
+import { isMarkdownName } from './lib/search';
 import {
   pickSingleFile,
   pickFolder,
@@ -199,7 +200,7 @@ export default function App() {
 
   function goHome() {
     const wasSettings = viewRef.current === 'settings';
-    if (active && !active.handle) setPastedDraft(text);
+    if (active?.source === 'paste') setPastedDraft(text);
     if (window.location.pathname === '/settings') {
       window.history.replaceState({}, '', '/');
       settingsEntryRef.current = false;
@@ -332,11 +333,54 @@ export default function App() {
     setView('preview');
   }
 
+  async function onDropEntry(handlePromise, fallbackFile) {
+    try {
+      const handle = await handlePromise;
+      if (handle?.kind === 'directory') {
+        persistHistory(handle);
+        await loadFolder(handle, handle.name);
+        return;
+      }
+      const file =
+        handle?.kind === 'file' ? await handle.getFile() : fallbackFile;
+      if (!file) {
+        setNotice('This browser cannot open the dropped folder.');
+        return;
+      }
+      if (!isMarkdownName(file.name)) {
+        setNotice('Drop a Markdown file or a folder.');
+        return;
+      }
+      const markdown = await file.text();
+      if (handle) persistHistory(handle);
+      setFolder(null);
+      setFiles([]);
+      setActive({
+        name: file.name,
+        path: file.name,
+        handle: handle || null,
+        source: 'drop',
+      });
+      setActiveRevision((revision) => revision + 1);
+      setTableState({});
+      setText(markdown);
+      setMode('preview');
+      setView('preview');
+    } catch (_) {
+      setNotice('Could not open the dropped item.');
+    }
+  }
+
   function onPreviewPastedMarkdown() {
     if (!pastedDraft.trim()) return;
     setFolder(null);
     setFiles([]);
-    setActive({ name: 'Pasted Markdown', path: '', handle: null });
+    setActive({
+      name: 'Pasted Markdown',
+      path: '',
+      handle: null,
+      source: 'paste',
+    });
     setActiveRevision((revision) => revision + 1);
     setTableState({});
     setText(pastedDraft);
@@ -448,7 +492,7 @@ export default function App() {
   }
 
   function onBack() {
-    const wasPasted = active && !active.handle;
+    const wasPasted = active?.source === 'paste';
     if (wasPasted) setPastedDraft(text);
     setActive(null);
     transitionView(wasPasted ? 'paste' : folder ? 'library' : 'picker');
@@ -537,6 +581,8 @@ export default function App() {
           onPaste={() =>
             transitionPage(() => setView('paste'), 'paste-forward')
           }
+          onDropEntry={onDropEntry}
+          onDropError={setNotice}
         />
       )}
 

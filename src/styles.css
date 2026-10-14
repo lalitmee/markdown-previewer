@@ -326,6 +326,10 @@ body {
   background: var(--card);
   transition: border-color 0.15s;
 }
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+}
 .dropzone-paste {
   max-width: 816px;
 }
