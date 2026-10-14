@@ -326,6 +326,64 @@ body {
   background: var(--card);
   transition: border-color 0.15s;
 }
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+}
+.dropzone-paste {
+  max-width: 816px;
+}
+.paste-form {
+  margin: 22px 0 24px;
+  text-align: left;
+}
+.paste-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.paste-form textarea {
+  display: block;
+  width: 100%;
+  min-height: min(45.6vh, 360px);
+  padding: 15px 16px;
+  resize: vertical;
+  border: 1px solid var(--bor);
+  border-radius: 10px;
+  outline: none;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.paste-form textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.paste-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.paste-footer > span {
+  color: var(--mut);
+  font-size: 12px;
+}
+.paste-footer .btn {
+  flex-shrink: 0;
+}
+@media (max-width: 520px) {
+  .paste-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 .dz-emoji {
   font-size: 56px;
   margin-bottom: 8px;
@@ -1315,7 +1373,7 @@ body {
   z-index: 1;
 }
 .mp-filter-menu {
-  position: fixed;
+  position: absolute;
   z-index: 130;
   display: flex;
   flex-direction: column;
@@ -1814,6 +1872,42 @@ body {
 }
 :root[data-navigation='back']::view-transition-new(root) {
   animation-name: route-enter-from-left;
+}
+@keyframes paste-zoom-in-old {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+@keyframes paste-zoom-in-new {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes paste-zoom-out-old {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes paste-zoom-out-new {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+:root[data-navigation='paste-forward']::view-transition-old(root) {
+  animation: 260ms ease-in both paste-zoom-in-old;
+}
+:root[data-navigation='paste-forward']::view-transition-new(root) {
+  animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both paste-zoom-in-new;
+}
+:root[data-navigation='paste-back']::view-transition-old(root) {
+  animation: 260ms ease-in both paste-zoom-out-old;
+}
+:root[data-navigation='paste-back']::view-transition-new(root) {
+  animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both paste-zoom-out-new;
 }
 @media (prefers-reduced-motion: reduce) {
   .table-overlay,

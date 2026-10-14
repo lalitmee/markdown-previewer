@@ -65,6 +65,117 @@ afterEach(async () => {
   delete globalThis.IS_REACT_ACT_ENVIRONMENT;
 });
 
+describe('pasted Markdown', () => {
+  it('animates between the start screen and paste editor', async () => {
+    const directions = [];
+    document.startViewTransition = vi.fn((update) => {
+      directions.push(document.documentElement.dataset.navigation);
+      update();
+      return { finished: Promise.resolve() };
+    });
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+    expect(host.querySelector('#pasted-markdown')).not.toBeNull();
+    await act(async () => host.querySelector('[aria-label="Go home"]').click());
+
+    expect(directions).toEqual(['paste-forward', 'paste-back']);
+    expect(host.querySelector('#pasted-markdown')).toBeNull();
+  });
+
+  it('renders pasted text without a file and returns to its editor on back', async () => {
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+
+    const input = host.querySelector('#pasted-markdown');
+    expect(input).not.toBeNull();
+    expect(host.querySelector('.paste-footer button').disabled).toBe(true);
+    expect(host.querySelector('.paste-footer button').textContent).toContain(
+      'Preview',
+    );
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# Pasted heading');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+
+    expect(host.querySelector('.file-title').textContent).toBe(
+      'Pasted Markdown',
+    );
+    expect(host.querySelector('.md-body h1').textContent).toBe(
+      'Pasted heading',
+    );
+    expect(host.querySelector('[aria-label="Save"]')).toBeNull();
+    expect(historyMock.add).not.toHaveBeenCalled();
+
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(host.querySelector('#pasted-markdown').value).toBe(
+      '# Pasted heading',
+    );
+    expect(host.querySelector('.dropzone h1').textContent).toBe(
+      'Paste Markdown',
+    );
+
+    await act(async () => host.querySelector('[aria-label="Go home"]').click());
+    expect(host.querySelector('#pasted-markdown')).toBeNull();
+    expect(host.querySelector('.dropzone h1').textContent).toBe(
+      'View & edit your markdown',
+    );
+    await act(async () => host.querySelector('.dz-actions button').click());
+    expect(host.querySelector('#pasted-markdown').value).toBe(
+      '# Pasted heading',
+    );
+  });
+});
+
+describe('drag and drop', () => {
+  function drop(item) {
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', {
+      value: { items: [item], files: [] },
+    });
+    host.querySelector('.dropzone').dispatchEvent(event);
+  }
+
+  it('opens a dropped Markdown file and returns to home', async () => {
+    await act(async () => root.render(createElement(App)));
+    const file = { name: 'notes.md', text: async () => '# Dropped file' };
+    const handle = { kind: 'file', name: file.name, getFile: async () => file };
+    await act(async () =>
+      drop({
+        kind: 'file',
+        getAsFileSystemHandle: () => Promise.resolve(handle),
+        getAsFile: () => file,
+      }),
+    );
+
+    expect(host.querySelector('.file-title').textContent).toBe('notes.md');
+    expect(host.querySelector('.md-body h1').textContent).toBe('Dropped file');
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(host.querySelector('#pasted-markdown')).toBeNull();
+    expect(host.querySelector('.dropzone h1').textContent).toBe(
+      'View & edit your markdown',
+    );
+  });
+
+  it('opens a dropped folder in the library', async () => {
+    await act(async () => root.render(createElement(App)));
+    const handle = { kind: 'directory', name: 'docs' };
+    await act(async () =>
+      drop({
+        kind: 'file',
+        getAsFileSystemHandle: () => Promise.resolve(handle),
+        getAsFile: () => null,
+      }),
+    );
+    expect(host.querySelector('.library')).not.toBeNull();
+    expect(historyMock.add).toHaveBeenCalled();
+  });
+});
+
 describe('App recent-item limit', () => {
   it('loads the saved limit, trims existing entries, and applies a changed limit', async () => {
     localStorage.setItem('mdpv-history-limit', '10');

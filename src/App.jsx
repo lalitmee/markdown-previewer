@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
+import PasteEditor from './components/PasteEditor';
 import Library from './components/Library';
 import Preview from './components/Preview';
 import HistorySection from './components/HistorySection';
@@ -9,6 +10,7 @@ import SettingsPage from './components/SettingsPage';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
+import { isMarkdownName } from './lib/search';
 import {
   pickSingleFile,
   pickFolder,
@@ -98,7 +100,7 @@ export default function App() {
   );
   const [view, setView] = useState(() =>
     window.location.pathname === '/settings' ? 'settings' : 'picker',
-  ); // picker | library | preview | settings
+  ); // picker | paste | library | preview | settings
   const [folder, setFolder] = useState(null); // { name, handle }
   const [files, setFiles] = useState([]);
   const [historyList, setHistoryList] = useState([]);
@@ -108,6 +110,7 @@ export default function App() {
   const [activeRevision, setActiveRevision] = useState(0);
   const [tableState, setTableState] = useState({});
   const [text, setText] = useState('');
+  const [pastedDraft, setPastedDraft] = useState('');
   const [notice, setNotice] = useState('');
   const [indexed, setIndexed] = useState(0);
   const [mode, setMode] = useState('preview'); // preview | edit
@@ -197,6 +200,7 @@ export default function App() {
 
   function goHome() {
     const wasSettings = viewRef.current === 'settings';
+    if (active?.source === 'paste') setPastedDraft(text);
     if (window.location.pathname === '/settings') {
       window.history.replaceState({}, '', '/');
       settingsEntryRef.current = false;
@@ -209,7 +213,8 @@ export default function App() {
       setActive(null);
       setQuery('');
     };
-    if (wasSettings) transitionPage(update, 'back');
+    if (wasSettings || viewRef.current === 'paste')
+      transitionPage(update, wasSettings ? 'back' : 'paste-back');
     else update();
   }
 
@@ -328,6 +333,61 @@ export default function App() {
     setView('preview');
   }
 
+  async function onDropEntry(handlePromise, fallbackFile) {
+    try {
+      const handle = await handlePromise;
+      if (handle?.kind === 'directory') {
+        persistHistory(handle);
+        await loadFolder(handle, handle.name);
+        return;
+      }
+      const file =
+        handle?.kind === 'file' ? await handle.getFile() : fallbackFile;
+      if (!file) {
+        setNotice('This browser cannot open the dropped folder.');
+        return;
+      }
+      if (!isMarkdownName(file.name)) {
+        setNotice('Drop a Markdown file or a folder.');
+        return;
+      }
+      const markdown = await file.text();
+      if (handle) persistHistory(handle);
+      setFolder(null);
+      setFiles([]);
+      setActive({
+        name: file.name,
+        path: file.name,
+        handle: handle || null,
+        source: 'drop',
+      });
+      setActiveRevision((revision) => revision + 1);
+      setTableState({});
+      setText(markdown);
+      setMode('preview');
+      setView('preview');
+    } catch (_) {
+      setNotice('Could not open the dropped item.');
+    }
+  }
+
+  function onPreviewPastedMarkdown() {
+    if (!pastedDraft.trim()) return;
+    setFolder(null);
+    setFiles([]);
+    setActive({
+      name: 'Pasted Markdown',
+      path: '',
+      handle: null,
+      source: 'paste',
+    });
+    setActiveRevision((revision) => revision + 1);
+    setTableState({});
+    setText(pastedDraft);
+    setMode('preview');
+    setView('preview');
+  }
+
   async function persistHistory(handle, location) {
     const request = historyLimitRequestRef.current;
     try {
@@ -432,8 +492,10 @@ export default function App() {
   }
 
   function onBack() {
+    const wasPasted = active?.source === 'paste';
+    if (wasPasted) setPastedDraft(text);
     setActive(null);
-    transitionView(folder ? 'library' : 'picker');
+    transitionView(wasPasted ? 'paste' : folder ? 'library' : 'picker');
   }
 
   const canSave = () =>
@@ -513,7 +575,23 @@ export default function App() {
       />
 
       {view === 'picker' && (
-        <Picker onPickFile={onPickSingleFile} onPickFolder={onPickFolder} />
+        <Picker
+          onPickFile={onPickSingleFile}
+          onPickFolder={onPickFolder}
+          onPaste={() =>
+            transitionPage(() => setView('paste'), 'paste-forward')
+          }
+          onDropEntry={onDropEntry}
+          onDropError={setNotice}
+        />
+      )}
+
+      {view === 'paste' && (
+        <PasteEditor
+          draft={pastedDraft}
+          onDraftChange={setPastedDraft}
+          onPreview={onPreviewPastedMarkdown}
+        />
       )}
 
       {view === 'library' && (
