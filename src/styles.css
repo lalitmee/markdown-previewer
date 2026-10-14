@@ -327,7 +327,7 @@ body {
   transition: border-color 0.15s;
 }
 .dropzone-paste {
-  max-width: 680px;
+  max-width: 816px;
 }
 .paste-form {
   margin: 22px 0 24px;
@@ -342,7 +342,7 @@ body {
 .paste-form textarea {
   display: block;
   width: 100%;
-  min-height: min(38vh, 300px);
+  min-height: min(45.6vh, 360px);
   padding: 15px 16px;
   resize: vertical;
   border: 1px solid var(--bor);
