@@ -23,6 +23,7 @@ export default function Preview({
   const [html, setHtml] = useState('');
   const [zoomSvg, setZoomSvg] = useState(null);
   const [expandedTable, setExpandedTable] = useState(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const previewRef = useRef(null);
 
   const expandedHtml = useMemo(() => {
@@ -72,7 +73,74 @@ export default function Preview({
       .forEach((b) => applyTableState(b, tableState));
   }, [tableState, html, mode]);
 
+  useEffect(() => {
+    const scroller =
+      mode === 'edit'
+        ? previewRef.current?.querySelector('.split-right')
+        : window;
+    if (!scroller) return;
+    const update = () =>
+      setShowBackToTop(
+        (scroller === window ? window.scrollY : scroller.scrollTop) > 400,
+      );
+    update();
+    scroller.addEventListener('scroll', update, { passive: true });
+    return () => scroller.removeEventListener('scroll', update);
+  }, [mode, entry]);
+
+  function goToTop() {
+    const scroller =
+      mode === 'edit'
+        ? previewRef.current?.querySelector('.split-right')
+        : window;
+    scroller?.scrollTo({
+      top: 0,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'instant'
+        : 'smooth',
+    });
+  }
+
   function onClick(e) {
+    const link = e.target.closest('a[href]');
+    if (
+      link &&
+      e.button === 0 &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.shiftKey &&
+      !e.altKey
+    ) {
+      const href = link.getAttribute('href');
+      const currentPath = entry?.path || '';
+      const currentUrl = new URL(
+        currentPath || 'pasted.md',
+        'https://preview.local/',
+      );
+      const targetUrl = new URL(href, currentUrl);
+      if (
+        targetUrl.origin === currentUrl.origin &&
+        targetUrl.pathname === currentUrl.pathname &&
+        targetUrl.hash
+      ) {
+        e.preventDefault();
+        const id = decodeURIComponent(targetUrl.hash.slice(1));
+        const body = link.closest('.md-body');
+        const target = [...body.querySelectorAll('[id]')].find(
+          (node) => node.id === id,
+        );
+        if (target) {
+          target.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)')
+              .matches
+              ? 'instant'
+              : 'smooth',
+            block: 'start',
+          });
+          return;
+        }
+      }
+    }
     const diagram = e.target.closest('.mdiagram');
     if (diagram) {
       const svgChild = diagram.querySelector('svg');
@@ -119,6 +187,20 @@ export default function Preview({
           <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
         )}
       </div>
+
+      {showBackToTop && (
+        <button
+          className="btn secondary icon-btn preview-back-to-top"
+          type="button"
+          aria-label="Back to top"
+          title="Back to top"
+          onClick={goToTop}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">
+            arrow_upward
+          </span>
+        </button>
+      )}
 
       {expandedTable !== null && expandedHtml && (
         <TableModal

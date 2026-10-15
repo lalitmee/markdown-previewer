@@ -103,6 +103,16 @@ describe('extractMermaidFences', () => {
 });
 
 describe('renderMarkdown', () => {
+  it('gives TOC headings stable unique targets', async () => {
+    const html = await renderMarkdown(
+      '# Guide\n\n- [First](#quick-start)\n- [Again](#quick-start-1)\n\n## Quick Start\n\n## Quick Start',
+    );
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    expect([...document.querySelectorAll('h2')].map((h) => h.id)).toEqual([
+      'quick-start',
+      'quick-start-1',
+    ]);
+  });
   it('renders GFM table and task lists', async () => {
     const html = await renderMarkdown(
       '| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done',

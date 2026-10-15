@@ -5,6 +5,25 @@ import { parsePlan, planToHtml } from './plan';
 
 let initializedTheme = null;
 
+function addHeadingIds(html) {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  const used = new Set();
+  container.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((heading) => {
+    const base = (heading.textContent || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}_\- ]/gu, '')
+      .replace(/ /g, '-');
+    let id = heading.id || base;
+    if (!id) return;
+    let suffix = 0;
+    while (used.has(id)) id = `${base}-${++suffix}`;
+    heading.id = id;
+    used.add(id);
+  });
+  return container.innerHTML;
+}
+
 const DIAGRAM_TYPES = [
   'flowchart',
   'graph',
@@ -141,7 +160,7 @@ export async function renderMarkdown(text, theme = 'light') {
       html += DOMPurify.sanitize(
         marked.parse(plan.rest, { gfm: true, breaks: true }),
       );
-    return html;
+    return addHeadingIds(html);
   }
   const { text: body, diagrams } = extractMermaidFences(text);
   const raw = marked.parse(body, { gfm: true, breaks: true });
@@ -181,7 +200,7 @@ export async function renderMarkdown(text, theme = 'light') {
   }
 
   html = await highlightCode(html);
-  return html;
+  return addHeadingIds(html);
 }
 
 async function highlightCode(html) {
