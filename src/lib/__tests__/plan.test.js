@@ -114,7 +114,7 @@ describe('renderMarkdown plan integration', () => {
       'light',
     );
     expect(html).toContain('plan-todos');
-    expect(html).toContain('<h2>Next steps</h2>');
+    expect(html).toContain('<h2 id="next-steps">Next steps</h2>');
     expect(html).toContain('<strong>context</strong>');
     expect(html).not.toContain('isProject');
   });
