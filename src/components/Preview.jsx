@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
@@ -19,12 +19,15 @@ export default function Preview({
   mode,
   editorFont,
   widthVar,
+  onProcessingChange,
 }) {
   const [html, setHtml] = useState('');
   const [zoomSvg, setZoomSvg] = useState(null);
   const [expandedTable, setExpandedTable] = useState(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const previewRef = useRef(null);
+  const previewId = useId();
+  const renderIdRef = useRef(0);
 
   const expandedHtml = useMemo(() => {
     if (expandedTable === null) return '';
@@ -42,19 +45,25 @@ export default function Preview({
 
   useEffect(() => {
     let cancelled = false;
+    const id = `${previewId}-${++renderIdRef.current}`;
+    onProcessingChange?.({ id, message: 'Rendering preview' });
     (async () => {
-      const rendered = await renderMarkdown(text, theme);
-      const inlined = await inlineImages(
-        rendered,
-        folderHandle,
-        entry ? entry.path : '',
-      );
-      if (!cancelled) setHtml(inlined);
+      try {
+        const rendered = await renderMarkdown(text, theme);
+        const inlined = await inlineImages(
+          rendered,
+          folderHandle,
+          entry ? entry.path : '',
+        );
+        if (!cancelled) setHtml(inlined);
+      } finally {
+        if (!cancelled) onProcessingChange?.(null);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [text, theme, entry, folderHandle]);
+  }, [text, theme, entry, folderHandle, onProcessingChange, previewId]);
 
   // Structural pass: rebuild handles/colgroup/rail on the fresh DOM. Keyed on
   // html + mode only, so a column drag never rebuilds the handles it holds.

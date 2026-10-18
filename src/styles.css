@@ -72,6 +72,12 @@ body {
   display: flex;
   flex-direction: column;
 }
+.app-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 /* Top bar */
 .topbar {
@@ -1586,6 +1592,41 @@ body {
 }
 
 /* Toast */
+.processing-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 12px auto 0;
+  padding: 8px 14px;
+  border: 1px solid var(--bor);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--fg);
+  font-size: 13px;
+  box-shadow: var(--shadow);
+}
+.processing-indicator {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid var(--bor);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: processing-spin 0.8s linear infinite;
+}
+.processing-progress {
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes processing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .toast {
   position: fixed;
   bottom: 24px;
@@ -1943,6 +1984,9 @@ body {
   animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both paste-zoom-out-new;
 }
 @media (prefers-reduced-motion: reduce) {
+  .processing-indicator {
+    animation: none;
+  }
   .table-overlay,
   .table-overlay.is-closing,
   .table-dialog,

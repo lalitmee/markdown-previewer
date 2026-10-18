@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
@@ -7,6 +7,7 @@ import Library from './components/Library';
 import Preview from './components/Preview';
 import HistorySection from './components/HistorySection';
 import SettingsPage from './components/SettingsPage';
+import ProcessingStatus from './components/ProcessingStatus';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
@@ -112,6 +113,7 @@ export default function App() {
   const [text, setText] = useState('');
   const [pastedDraft, setPastedDraft] = useState('');
   const [notice, setNotice] = useState('');
+  const [activity, setActivity] = useState(null);
   const [indexed, setIndexed] = useState(0);
   const [mode, setMode] = useState('preview'); // preview | edit
   const [editorFont, setEditorFont] = useState(() =>
@@ -133,10 +135,57 @@ export default function App() {
   const initialHistoryLimitRef = useRef(historyLimit);
   const viewRef = useRef(view);
   const historyLimitRequestRef = useRef(0);
+  const operationIdRef = useRef(0);
+  const foregroundOperationRef = useRef(null);
+  const previewActivityIdRef = useRef(null);
   viewRef.current = view;
+
+  const onPreviewProcessingChange = useCallback((next) => {
+    if (foregroundOperationRef.current !== null) return;
+    if (next) {
+      previewActivityIdRef.current = next.id;
+      setActivity(next);
+      return;
+    }
+    const id = previewActivityIdRef.current;
+    setActivity((current) => (current?.id === id ? null : current));
+    previewActivityIdRef.current = null;
+  }, []);
+
+  function startOperation(message) {
+    const id = ++operationIdRef.current;
+    foregroundOperationRef.current = id;
+    setNotice('');
+    setActivity({ id, message });
+    return id;
+  }
+
+  function isCurrentOperation(id) {
+    return operationIdRef.current === id;
+  }
+
+  function updateOperation(id, next) {
+    if (!isCurrentOperation(id)) return false;
+    setActivity({ id, ...next });
+    return true;
+  }
+
+  function finishOperation(id) {
+    if (isCurrentOperation(id)) {
+      foregroundOperationRef.current = null;
+      setActivity(null);
+    }
+  }
+
+  function cancelOperation() {
+    operationIdRef.current += 1;
+    foregroundOperationRef.current = null;
+    setActivity(null);
+  }
 
   useEffect(() => {
     function onPopState() {
+      cancelOperation();
       const isSettings = window.location.pathname === '/settings';
       if (isSettings) {
         if (viewRef.current !== 'settings')
@@ -200,6 +249,7 @@ export default function App() {
 
   function goHome() {
     const wasSettings = viewRef.current === 'settings';
+    cancelOperation();
     if (active?.source === 'paste') setPastedDraft(text);
     if (window.location.pathname === '/settings') {
       window.history.replaceState({}, '', '/');
@@ -210,6 +260,7 @@ export default function App() {
       setView('picker');
       setFolder(null);
       setFiles([]);
+      cacheRef.current = new Map();
       setActive(null);
       setQuery('');
     };
@@ -237,6 +288,7 @@ export default function App() {
   }
 
   function openSettings() {
+    cancelOperation();
     if (view !== 'settings') {
       settingsReturnRef.current = view;
       if (window.location.pathname !== '/settings') {
@@ -248,6 +300,7 @@ export default function App() {
   }
 
   function closeSettings() {
+    cancelOperation();
     if (settingsEntryRef.current && window.location.pathname === '/settings') {
       settingsEntryRef.current = false;
       window.history.back();
@@ -274,30 +327,61 @@ export default function App() {
     }
   }
 
-  async function loadFolder(handle, name) {
-    cacheRef.current = new Map();
+  async function loadFolder(handle, name, id) {
+    updateOperation(id, { message: `Scanning folder: ${name}` });
     const md = await listMdFiles(handle, excludes);
+    if (!isCurrentOperation(id)) return;
+
+    cacheRef.current = new Map();
+    const cache = cacheRef.current;
     setFolder({ name, handle });
     setFiles(md);
     setActive(null);
     transitionView('library');
     setIndexed(0);
+    if (md.length) {
+      updateOperation(id, {
+        message: 'Loading Markdown',
+        current: 0,
+        total: md.length,
+      });
+    }
     for (let i = 0; i < md.length; i++) {
       const f = md[i];
       try {
-        cacheRef.current.set(f.path, await readFileText(f.handle));
+        const markdown = await readFileText(f.handle);
+        if (cacheRef.current !== cache) return;
+        cache.set(f.path, markdown);
       } catch (_) {
+        if (cacheRef.current !== cache) return;
         /* skip unreadable */
       }
       setIndexed(i + 1);
+      updateOperation(id, {
+        message: 'Loading Markdown',
+        current: i + 1,
+        total: md.length,
+      });
     }
-    setNotice('');
   }
 
   async function openEntry(entry) {
-    const t =
-      cacheRef.current.get(entry.path) ?? (await readFileText(entry.handle));
-    if (!cacheRef.current.has(entry.path)) cacheRef.current.set(entry.path, t);
+    cancelOperation();
+    let t = cacheRef.current.get(entry.path);
+    if (!cacheRef.current.has(entry.path)) {
+      const id = startOperation(`Reading file: ${entry.name}`);
+      try {
+        t = await readFileText(entry.handle);
+      } catch (_) {
+        if (isCurrentOperation(id))
+          setNotice('Could not open the selected file.');
+        finishOperation(id);
+        return;
+      }
+      if (!isCurrentOperation(id)) return;
+      cacheRef.current.set(entry.path, t);
+      finishOperation(id);
+    }
     if (folder) {
       const location = folder.name + (entry.path ? '/' + entry.path : '');
       persistHistory(entry.handle, location);
@@ -314,35 +398,55 @@ export default function App() {
   async function onPickFolder() {
     const handle = await pickFolder();
     if (!handle) return;
+    const id = startOperation(`Scanning folder: ${handle.name}`);
     persistHistory(handle);
-    await loadFolder(handle, handle.name);
+    try {
+      await loadFolder(handle, handle.name, id);
+    } catch (_) {
+      if (isCurrentOperation(id))
+        setNotice('Could not open the selected folder.');
+    } finally {
+      finishOperation(id);
+    }
   }
 
   async function onPickSingleFile() {
     const handle = await pickSingleFile();
     if (!handle) return;
-    const t = await readFileText(handle);
-    persistHistory(handle);
-    setFolder(null);
-    setFiles([]);
-    cacheRef.current.set(handle.name, t);
-    setActive({ name: handle.name, path: handle.name, handle });
-    setActiveRevision((revision) => revision + 1);
-    setTableState({});
-    setText(t);
-    setView('preview');
+    const id = startOperation(`Reading file: ${handle.name}`);
+    try {
+      const t = await readFileText(handle);
+      if (!isCurrentOperation(id)) return;
+      persistHistory(handle);
+      setFolder(null);
+      setFiles([]);
+      cacheRef.current = new Map([[handle.name, t]]);
+      setActive({ name: handle.name, path: handle.name, handle });
+      setActiveRevision((revision) => revision + 1);
+      setTableState({});
+      setText(t);
+      setView('preview');
+    } catch (_) {
+      if (isCurrentOperation(id))
+        setNotice('Could not open the selected file.');
+    } finally {
+      finishOperation(id);
+    }
   }
 
   async function onDropEntry(handlePromise, fallbackFile) {
+    const id = startOperation('Opening dropped item');
     try {
       const handle = await handlePromise;
+      if (!isCurrentOperation(id)) return;
       if (handle?.kind === 'directory') {
         persistHistory(handle);
-        await loadFolder(handle, handle.name);
+        await loadFolder(handle, handle.name, id);
         return;
       }
       const file =
         handle?.kind === 'file' ? await handle.getFile() : fallbackFile;
+      if (!isCurrentOperation(id)) return;
       if (!file) {
         setNotice('This browser cannot open the dropped folder.');
         return;
@@ -351,10 +455,13 @@ export default function App() {
         setNotice('Drop a Markdown file or a folder.');
         return;
       }
+      updateOperation(id, { message: `Reading file: ${file.name}` });
       const markdown = await file.text();
+      if (!isCurrentOperation(id)) return;
       if (handle) persistHistory(handle);
       setFolder(null);
       setFiles([]);
+      cacheRef.current = new Map();
       setActive({
         name: file.name,
         path: file.name,
@@ -367,7 +474,9 @@ export default function App() {
       setMode('preview');
       setView('preview');
     } catch (_) {
-      setNotice('Could not open the dropped item.');
+      if (isCurrentOperation(id)) setNotice('Could not open the dropped item.');
+    } finally {
+      finishOperation(id);
     }
   }
 
@@ -375,6 +484,7 @@ export default function App() {
     if (!pastedDraft.trim()) return;
     setFolder(null);
     setFiles([]);
+    cacheRef.current = new Map();
     setActive({
       name: 'Pasted Markdown',
       path: '',
@@ -456,23 +566,36 @@ export default function App() {
   }
 
   async function onOpenHistory(h) {
-    const granted = await requestPermission(h.handle);
-    if (!granted) {
-      setNotice('Permission denied. Re-pick the folder or file.');
-      transitionView('picker');
-      return;
-    }
-    if (h.kind === 'directory') {
-      await loadFolder(h.handle, h.name);
-    } else {
-      setFolder(null);
-      setFiles([]);
-      setActive({ name: h.name, path: h.name, handle: h.handle });
-      setActiveRevision((revision) => revision + 1);
-      setTableState({});
-      setText(await readFileText(h.handle));
-      persistHistory(h.handle, h.location);
-      transitionView('preview');
+    const id = startOperation(`Opening recent item: ${h.name}`);
+    try {
+      const granted = await requestPermission(h.handle);
+      if (!isCurrentOperation(id)) return;
+      if (!granted) {
+        setActivity(null);
+        setNotice('Permission denied. Re-pick the folder or file.');
+        transitionView('picker');
+        return;
+      }
+      if (h.kind === 'directory') {
+        await loadFolder(h.handle, h.name, id);
+      } else {
+        updateOperation(id, { message: `Reading file: ${h.name}` });
+        const markdown = await readFileText(h.handle);
+        if (!isCurrentOperation(id)) return;
+        setFolder(null);
+        setFiles([]);
+        cacheRef.current = new Map();
+        setActive({ name: h.name, path: h.name, handle: h.handle });
+        setActiveRevision((revision) => revision + 1);
+        setTableState({});
+        setText(markdown);
+        persistHistory(h.handle, h.location);
+        transitionView('preview');
+      }
+    } catch (_) {
+      if (isCurrentOperation(id)) setNotice('Could not open the recent item.');
+    } finally {
+      finishOperation(id);
     }
   }
 
@@ -492,6 +615,7 @@ export default function App() {
   }
 
   function onBack() {
+    cancelOperation();
     const wasPasted = active?.source === 'paste';
     if (wasPasted) setPastedDraft(text);
     setActive(null);
@@ -574,73 +698,84 @@ export default function App() {
         }
       />
 
-      {view === 'picker' && (
-        <Picker
-          onPickFile={onPickSingleFile}
-          onPickFolder={onPickFolder}
-          onPaste={() =>
-            transitionPage(() => setView('paste'), 'paste-forward')
-          }
-          onDropEntry={onDropEntry}
-          onDropError={setNotice}
-        />
-      )}
+      <ProcessingStatus activity={activity} />
 
-      {view === 'paste' && (
-        <PasteEditor
-          draft={pastedDraft}
-          onDraftChange={setPastedDraft}
-          onPreview={onPreviewPastedMarkdown}
-        />
-      )}
+      <div className="app-content" aria-busy={Boolean(activity)}>
+        {view === 'picker' && (
+          <Picker
+            onPickFile={onPickSingleFile}
+            onPickFolder={onPickFolder}
+            onPaste={() => {
+              cancelOperation();
+              transitionPage(() => setView('paste'), 'paste-forward');
+            }}
+            onDropEntry={onDropEntry}
+            onDropError={(message) => {
+              cancelOperation();
+              setNotice(message);
+            }}
+          />
+        )}
 
-      {view === 'library' && (
-        <Library
-          key={folder ? folder.name : 'lib'}
-          files={files}
-          folderName={folder ? folder.name : ''}
-          cache={cacheRef.current}
-          indexed={indexed}
-          query={query}
-          scope={scope}
-          viewMode={viewMode}
-          onOpen={openEntry}
-        />
-      )}
+        {view === 'paste' && (
+          <PasteEditor
+            draft={pastedDraft}
+            onDraftChange={setPastedDraft}
+            onPreview={onPreviewPastedMarkdown}
+          />
+        )}
 
-      {view === 'settings' && (
-        <SettingsPage
-          rules={excludes}
-          theme={theme}
-          accent={accent}
-          historyLimit={historyLimit}
-          onThemeSelect={setTheme}
-          onAccentSelect={setAccent}
-          onHistoryLimitSelect={pickHistoryLimit}
-          onAdd={(rule) => applyExcludes([...excludes, rule])}
-          onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
-          onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
-        />
-      )}
+        {view === 'library' && (
+          <Library
+            key={folder ? folder.name : 'lib'}
+            files={files}
+            folderName={folder ? folder.name : ''}
+            cache={cacheRef.current}
+            indexed={indexed}
+            query={query}
+            scope={scope}
+            viewMode={viewMode}
+            onOpen={openEntry}
+          />
+        )}
 
-      {view === 'preview' && (
-        <Preview
-          key={activeRevision}
-          entry={active}
-          text={text}
-          setText={setText}
-          tableState={tableState}
-          setTableState={setTableState}
-          theme={theme}
-          folderHandle={folder ? folder.handle : null}
-          mode={mode}
-          editorFont={editorFont}
-          widthVar={
-            (WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0])
-              .px
-          }
-        />
-      )}
+        {view === 'settings' && (
+          <SettingsPage
+            rules={excludes}
+            theme={theme}
+            accent={accent}
+            historyLimit={historyLimit}
+            onThemeSelect={setTheme}
+            onAccentSelect={setAccent}
+            onHistoryLimitSelect={pickHistoryLimit}
+            onAdd={(rule) => applyExcludes([...excludes, rule])}
+            onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
+            onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
+          />
+        )}
+
+        {view === 'preview' && (
+          <Preview
+            key={activeRevision}
+            entry={active}
+            text={text}
+            onProcessingChange={onPreviewProcessingChange}
+            setText={setText}
+            tableState={tableState}
+            setTableState={setTableState}
+            theme={theme}
+            folderHandle={folder ? folder.handle : null}
+            mode={mode}
+            editorFont={editorFont}
+            widthVar={
+              (
+                WIDTH_OPTIONS.find((o) => o.key === widthMode) ||
+                WIDTH_OPTIONS[0]
+              ).px
+            }
+          />
+        )}
+      </div>
 
       {showRecents && (
         <div
