@@ -20,6 +20,11 @@ it('renders home actions with Material Symbols icons', async () => {
       ),
     );
     expect(host.querySelectorAll('.dz-actions button')).toHaveLength(3);
+    const logo = host.querySelector('.dropzone .picker-logo');
+    expect(logo.getAttribute('src')).toBe(
+      `${import.meta.env.BASE_URL}logo.svg`,
+    );
+    expect(logo.getAttribute('alt')).toBe('');
     expect(
       Array.from(
         host.querySelectorAll('.dz-actions .material-symbols-outlined'),

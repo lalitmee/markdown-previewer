@@ -324,10 +324,11 @@ body {
   vertical-align: middle;
   font-size: 24px;
 }
-.picker-icon.dz-icon {
-  width: 28px;
-  height: 28px;
-  font-size: 28px;
+.picker-logo {
+  display: block;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
 }
 .picker {
   flex: 1;

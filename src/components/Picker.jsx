@@ -41,12 +41,11 @@ export default function Picker({
         }}
         onDrop={onDrop}
       >
-        <span
-          className="material-symbols-outlined picker-icon dz-icon"
-          aria-hidden="true"
-        >
-          folder
-        </span>
+        <img
+          className="picker-logo"
+          src={`${import.meta.env.BASE_URL}logo.svg`}
+          alt=""
+        />
         <h1>View &amp; edit your markdown</h1>
         <p className="dz-sub">
           Paste Markdown, drop a Markdown file or folder, or choose one below.
