@@ -10,7 +10,8 @@ export default function ProcessingStatus({ activity }) {
     return () => clearTimeout(timer);
   }, [activityId]);
 
-  if (!activity || visibleFor !== activity.id) return null;
+  if (!activity || (!activity.immediate && visibleFor !== activity.id))
+    return null;
 
   return (
     <div className="processing-status" role="status" aria-live="polite">

@@ -396,11 +396,20 @@ export default function App() {
   }
 
   async function onPickFolder() {
-    const handle = await pickFolder();
-    if (!handle) return;
-    const id = startOperation(`Scanning folder: ${handle.name}`);
-    persistHistory(handle);
+    let id;
+    flushSync(() => {
+      id = startOperation('Select a folder and allow browser access…');
+      setActivity({
+        id,
+        message: 'Select a folder and allow browser access…',
+        immediate: true,
+      });
+    });
     try {
+      const handle = await pickFolder();
+      if (!handle) return;
+      updateOperation(id, { message: `Scanning folder: ${handle.name}` });
+      persistHistory(handle);
       await loadFolder(handle, handle.name, id);
     } catch (_) {
       if (isCurrentOperation(id))
@@ -677,28 +686,29 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar
-        doc={doc}
-        onHome={goHome}
-        hasRecents={historyList.length > 0}
-        onRecents={() => setShowRecents(true)}
-        onSettings={view === 'settings' ? closeSettings : openSettings}
-        settingsActive={view === 'settings'}
-        library={
-          view === 'library'
-            ? {
-                query,
-                onQuery: setQuery,
-                viewMode,
-                onViewMode: pickViewMode,
-                scope,
-                onScope: pickScope,
-              }
-            : null
-        }
-      />
-
-      <ProcessingStatus activity={activity} />
+      <div className="app-sticky-header">
+        <TopBar
+          doc={doc}
+          onHome={goHome}
+          hasRecents={historyList.length > 0}
+          onRecents={() => setShowRecents(true)}
+          onSettings={view === 'settings' ? closeSettings : openSettings}
+          settingsActive={view === 'settings'}
+          library={
+            view === 'library'
+              ? {
+                  query,
+                  onQuery: setQuery,
+                  viewMode,
+                  onViewMode: pickViewMode,
+                  scope,
+                  onScope: pickScope,
+                }
+              : null
+          }
+        />
+        <ProcessingStatus activity={activity} />
+      </div>
 
       <div className="app-content" aria-busy={Boolean(activity)}>
         {view === 'picker' && (
