@@ -100,6 +100,15 @@ async function showDelayedStatus() {
 }
 
 describe('pasted Markdown', () => {
+  it('keeps the top bar and processing status in one shell', async () => {
+    await act(async () => root.render(createElement(App)));
+
+    const shell = host.querySelector('.app-sticky-header');
+    expect(shell.querySelector('header.topbar')).not.toBeNull();
+    expect(shell.querySelector('.processing-status')).toBeNull();
+    expect(shell.contains(host.querySelector('.app-content'))).toBe(false);
+  });
+
   it('animates between the start screen and paste editor', async () => {
     const directions = [];
     document.startViewTransition = vi.fn((update) => {
@@ -221,6 +230,21 @@ describe('file and folder processing feedback', () => {
     host.querySelector('.dropzone').dispatchEvent(event);
   }
 
+  it('shows feedback while the browser folder picker is still open', async () => {
+    const picker = deferred();
+    fsMock.pickFolder.mockReturnValue(picker.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Select a folder and allow browser access',
+    );
+
+    await act(async () => picker.resolve(null));
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
   it('reports folder scanning and indexed progress after selection', async () => {
     const scan = deferred();
     const firstRead = deferred();
@@ -245,6 +269,11 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Scanning folder: docs',
     );
+    expect(
+      host
+        .querySelector('.app-sticky-header')
+        .contains(host.querySelector('[role="status"]')),
+    ).toBe(true);
 
     await act(async () => scan.resolve(files));
     expect(host.querySelector('.library')).not.toBeNull();

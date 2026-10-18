@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import Picker from '../Picker';
 
-it('renders home actions with font-independent icons', async () => {
+it('renders home actions with Material Symbols icons', async () => {
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
@@ -20,10 +20,12 @@ it('renders home actions with font-independent icons', async () => {
       ),
     );
     expect(host.querySelectorAll('.dz-actions button')).toHaveLength(3);
-    expect(host.querySelectorAll('.dz-actions button svg')).toHaveLength(3);
     expect(
-      host.querySelectorAll('.dz-actions .material-symbols-outlined'),
-    ).toHaveLength(0);
+      Array.from(
+        host.querySelectorAll('.dz-actions .material-symbols-outlined'),
+        (icon) => icon.textContent,
+      ),
+    ).toEqual(['content_paste', 'folder', 'description']);
   } finally {
     await act(async () => root.unmount());
     host.remove();

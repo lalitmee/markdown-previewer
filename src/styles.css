@@ -79,6 +79,13 @@ body {
   flex-direction: column;
 }
 
+.app-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+}
+
 /* Top bar */
 .topbar {
   display: flex;
@@ -89,9 +96,6 @@ body {
   padding: 10px 20px;
   border-bottom: 1px solid var(--bor);
   background: var(--bg);
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .brand {
@@ -318,10 +322,12 @@ body {
   height: 24px;
   flex: none;
   vertical-align: middle;
+  font-size: 24px;
 }
 .picker-icon.dz-icon {
   width: 28px;
   height: 28px;
+  font-size: 28px;
 }
 .picker {
   flex: 1;
