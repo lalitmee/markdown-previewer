@@ -7,6 +7,7 @@ import Library from './components/Library';
 import Preview from './components/Preview';
 import HistorySection from './components/HistorySection';
 import SettingsPage from './components/SettingsPage';
+import ProcessingStatus from './components/ProcessingStatus';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
@@ -112,6 +113,7 @@ export default function App() {
   const [text, setText] = useState('');
   const [pastedDraft, setPastedDraft] = useState('');
   const [notice, setNotice] = useState('');
+  const [activity, setActivity] = useState(null);
   const [indexed, setIndexed] = useState(0);
   const [mode, setMode] = useState('preview'); // preview | edit
   const [editorFont, setEditorFont] = useState(() =>
@@ -200,6 +202,7 @@ export default function App() {
 
   function goHome() {
     const wasSettings = viewRef.current === 'settings';
+    setActivity(null);
     if (active?.source === 'paste') setPastedDraft(text);
     if (window.location.pathname === '/settings') {
       window.history.replaceState({}, '', '/');
@@ -552,7 +555,7 @@ export default function App() {
       : null;
 
   return (
-    <div className="app">
+    <div className="app" aria-busy={Boolean(activity)}>
       <TopBar
         doc={doc}
         onHome={goHome}
@@ -573,6 +576,8 @@ export default function App() {
             : null
         }
       />
+
+      <ProcessingStatus activity={activity} />
 
       {view === 'picker' && (
         <Picker
