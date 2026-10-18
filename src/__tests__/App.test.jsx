@@ -32,6 +32,15 @@ const fsMock = vi.hoisted(() => ({
 }));
 vi.mock('../lib/history', () => ({ createHistory: () => historyMock }));
 vi.mock('../lib/fs-access', () => fsMock);
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value, onChange }) => (
+    <textarea
+      className="cm-content"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
 
 let host;
 let root;
@@ -230,7 +239,9 @@ describe('file and folder processing feedback', () => {
     await act(async () => host.querySelector('button.btn.secondary').click());
     await showDelayedStatus();
 
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Scanning folder: docs',
     );
@@ -255,8 +266,36 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('.result-count').textContent).toContain(
       '2 files',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
     expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('continues eager indexing when opening a file during indexing', async () => {
+    const firstIndexRead = deferred();
+    const files = [
+      { name: 'one.md', path: 'one.md', handle: { name: 'one.md' } },
+      { name: 'two.md', path: 'two.md', handle: { name: 'two.md' } },
+    ];
+    fsMock.pickFolder.mockResolvedValue({ name: 'docs' });
+    fsMock.listMdFiles.mockResolvedValue(files);
+    fsMock.readFileText
+      .mockReturnValueOnce(firstIndexRead.promise)
+      .mockResolvedValueOnce('# One')
+      .mockResolvedValueOnce('# Two');
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+    await act(async () => Promise.resolve());
+    await act(async () => host.querySelector('.card').click());
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    await act(async () => firstIndexRead.resolve('# One'));
+
+    expect(fsMock.readFileText).toHaveBeenCalledTimes(3);
+    expect(host.querySelector('.result-count').textContent).toContain(
+      '2 files',
+    );
   });
 
   it('reports scanning when opening a folder from history', async () => {
@@ -276,14 +315,18 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Scanning folder: archive',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => scan.resolve([]));
     expect(host.querySelector('.library')).not.toBeNull();
     expect(host.querySelector('.empty-state').textContent).toContain(
       'No markdown files found',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
   });
 
   it('reports a file read while opening a selected file', async () => {
@@ -300,11 +343,15 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Reading file: selected.md',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => read.resolve('# Selected'));
     expect(host.querySelector('.file-title').textContent).toBe('selected.md');
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
   });
 
   it('reports a file read while opening a file from history', async () => {
@@ -324,11 +371,15 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Reading file: recent.md',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => read.resolve('# Recent'));
     expect(host.querySelector('.file-title').textContent).toBe('recent.md');
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
   });
 
   it('clears feedback after permission is denied for a recent file', async () => {
@@ -354,7 +405,9 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('.toast').textContent).toContain(
       'Permission denied',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
     expect(host.querySelector('[role="status"]')).toBeNull();
   });
 
@@ -376,11 +429,15 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Reading file: dropped.md',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => read.resolve('# Dropped'));
     expect(host.querySelector('.file-title').textContent).toBe('dropped.md');
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
   });
 
   it('clears busy state and shows a notice when folder scanning fails', async () => {
@@ -390,7 +447,9 @@ describe('file and folder processing feedback', () => {
     await act(async () => root.render(createElement(App)));
     await act(async () => host.querySelector('button.btn.secondary').click());
 
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
     expect(host.querySelector('.toast')).not.toBeNull();
     expect(host.querySelector('.library')).toBeNull();
   });
@@ -404,7 +463,9 @@ describe('file and folder processing feedback', () => {
       host.querySelector('button.btn.secondary:last-child').click(),
     );
 
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
     expect(host.querySelector('.toast')).not.toBeNull();
     expect(host.querySelector('.preview-page')).toBeNull();
   });
@@ -432,7 +493,9 @@ describe('file and folder processing feedback', () => {
     expect(host.querySelector('[role="status"]').textContent).toContain(
       'Reading file: new.md',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => newRead.resolve('# New'));
     expect(host.querySelector('.file-title').textContent).toBe('new.md');
@@ -747,15 +810,45 @@ describe('preview processing feedback', () => {
     expect(host.querySelector('[role="status"]')?.textContent).toContain(
       'Rendering preview',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => render.resolve('<h1>Pasted preview</h1>'));
 
     expect(host.querySelector('.md-body h1').textContent).toBe(
       'Pasted preview',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
     expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('keeps the live status outside the busy content', async () => {
+    const render = deferred();
+    vi.spyOn(markdown, 'renderMarkdown').mockReturnValueOnce(render.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+    const input = host.querySelector('#pasted-markdown');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# Busy region');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+    await showDelayedStatus();
+
+    const status = host.querySelector('[role="status"]');
+    const busy = host.querySelector('[aria-busy="true"]');
+    expect(status).not.toBeNull();
+    expect(busy).not.toBeNull();
+    expect(busy.contains(status)).toBe(false);
+
+    await act(async () => render.resolve('<h1>Busy region</h1>'));
   });
 
   it('reports delayed rendering for a file preview', async () => {
@@ -778,6 +871,61 @@ describe('preview processing feedback', () => {
 
     expect(host.querySelector('.md-body h1').textContent).toBe('Large file');
     expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('keeps an in-flight file read as owner while the current preview rerenders', async () => {
+    const read = deferred();
+    const editedRender = deferred();
+    const render = vi
+      .spyOn(markdown, 'renderMarkdown')
+      .mockImplementation((source) =>
+        source.includes('Edited')
+          ? editedRender.promise
+          : Promise.resolve(`<h1>${source.slice(2)}</h1>`),
+      );
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'current.md' });
+    fsMock.readFileText.mockResolvedValue('# Initial');
+    historyMock.items = [
+      { name: 'recent.md', kind: 'file', handle: { name: 'recent.md' } },
+    ];
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('button.btn.secondary:last-child').click(),
+    );
+    await act(async () =>
+      host.querySelector('[aria-label="Recent files and folders"]').click(),
+    );
+    fsMock.readFileText.mockReturnValue(read.promise);
+    await act(async () => host.querySelector('.history-open').click());
+    await showDelayedStatus();
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Reading file: recent.md',
+    );
+
+    await act(async () => host.querySelector('[aria-label="Edit"]').click());
+    const editor = host.querySelector('.cm-content');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(editor, '# Edited');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await showDelayedStatus();
+
+    expect(
+      render.mock.calls.some(([source]) => source.includes('Edited')),
+    ).toBe(true);
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Reading file: recent.md',
+    );
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
+
+    await act(async () => editedRender.resolve('<h1>Edited</h1>'));
+    await act(async () => read.resolve('# Recent'));
   });
 
   it('does not let an obsolete render clear a newer preview status', async () => {
@@ -813,11 +961,15 @@ describe('preview processing feedback', () => {
     expect(host.querySelector('[role="status"]')?.textContent).toContain(
       'Rendering preview',
     );
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'true',
+    );
 
     await act(async () => newRender.resolve('<h1>New preview</h1>'));
     expect(host.querySelector('.md-body h1').textContent).toBe('New preview');
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
   });
 
   it('does not flash status for a quick preview render', async () => {
@@ -836,7 +988,9 @@ describe('preview processing feedback', () => {
 
     expect(host.querySelector('.md-body h1').textContent).toBe('Quick preview');
     expect(host.querySelector('[role="status"]')).toBeNull();
-    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.app-content').getAttribute('aria-busy')).toBe(
+      'false',
+    );
   });
 
   it('delays status for a later preview instead of reusing visibility', async () => {

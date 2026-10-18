@@ -136,10 +136,12 @@ export default function App() {
   const viewRef = useRef(view);
   const historyLimitRequestRef = useRef(0);
   const operationIdRef = useRef(0);
+  const foregroundOperationRef = useRef(null);
   const previewActivityIdRef = useRef(null);
   viewRef.current = view;
 
   const onPreviewProcessingChange = useCallback((next) => {
+    if (foregroundOperationRef.current !== null) return;
     if (next) {
       previewActivityIdRef.current = next.id;
       setActivity(next);
@@ -152,6 +154,7 @@ export default function App() {
 
   function startOperation(message) {
     const id = ++operationIdRef.current;
+    foregroundOperationRef.current = id;
     setNotice('');
     setActivity({ id, message });
     return id;
@@ -168,11 +171,15 @@ export default function App() {
   }
 
   function finishOperation(id) {
-    if (isCurrentOperation(id)) setActivity(null);
+    if (isCurrentOperation(id)) {
+      foregroundOperationRef.current = null;
+      setActivity(null);
+    }
   }
 
   function cancelOperation() {
     operationIdRef.current += 1;
+    foregroundOperationRef.current = null;
     setActivity(null);
   }
 
@@ -253,6 +260,7 @@ export default function App() {
       setView('picker');
       setFolder(null);
       setFiles([]);
+      cacheRef.current = new Map();
       setActive(null);
       setQuery('');
     };
@@ -325,6 +333,7 @@ export default function App() {
     if (!isCurrentOperation(id)) return;
 
     cacheRef.current = new Map();
+    const cache = cacheRef.current;
     setFolder({ name, handle });
     setFiles(md);
     setActive(null);
@@ -341,10 +350,10 @@ export default function App() {
       const f = md[i];
       try {
         const markdown = await readFileText(f.handle);
-        if (!isCurrentOperation(id)) return;
-        cacheRef.current.set(f.path, markdown);
+        if (cacheRef.current !== cache) return;
+        cache.set(f.path, markdown);
       } catch (_) {
-        if (!isCurrentOperation(id)) return;
+        if (cacheRef.current !== cache) return;
         /* skip unreadable */
       }
       setIndexed(i + 1);
@@ -411,7 +420,7 @@ export default function App() {
       persistHistory(handle);
       setFolder(null);
       setFiles([]);
-      cacheRef.current.set(handle.name, t);
+      cacheRef.current = new Map([[handle.name, t]]);
       setActive({ name: handle.name, path: handle.name, handle });
       setActiveRevision((revision) => revision + 1);
       setTableState({});
@@ -452,6 +461,7 @@ export default function App() {
       if (handle) persistHistory(handle);
       setFolder(null);
       setFiles([]);
+      cacheRef.current = new Map();
       setActive({
         name: file.name,
         path: file.name,
@@ -474,6 +484,7 @@ export default function App() {
     if (!pastedDraft.trim()) return;
     setFolder(null);
     setFiles([]);
+    cacheRef.current = new Map();
     setActive({
       name: 'Pasted Markdown',
       path: '',
@@ -573,6 +584,7 @@ export default function App() {
         if (!isCurrentOperation(id)) return;
         setFolder(null);
         setFiles([]);
+        cacheRef.current = new Map();
         setActive({ name: h.name, path: h.name, handle: h.handle });
         setActiveRevision((revision) => revision + 1);
         setTableState({});
@@ -664,7 +676,7 @@ export default function App() {
       : null;
 
   return (
-    <div className="app" aria-busy={Boolean(activity)}>
+    <div className="app">
       <TopBar
         doc={doc}
         onHome={goHome}
@@ -688,78 +700,82 @@ export default function App() {
 
       <ProcessingStatus activity={activity} />
 
-      {view === 'picker' && (
-        <Picker
-          onPickFile={onPickSingleFile}
-          onPickFolder={onPickFolder}
-          onPaste={() => {
-            cancelOperation();
-            transitionPage(() => setView('paste'), 'paste-forward');
-          }}
-          onDropEntry={onDropEntry}
-          onDropError={(message) => {
-            cancelOperation();
-            setNotice(message);
-          }}
-        />
-      )}
+      <div className="app-content" aria-busy={Boolean(activity)}>
+        {view === 'picker' && (
+          <Picker
+            onPickFile={onPickSingleFile}
+            onPickFolder={onPickFolder}
+            onPaste={() => {
+              cancelOperation();
+              transitionPage(() => setView('paste'), 'paste-forward');
+            }}
+            onDropEntry={onDropEntry}
+            onDropError={(message) => {
+              cancelOperation();
+              setNotice(message);
+            }}
+          />
+        )}
 
-      {view === 'paste' && (
-        <PasteEditor
-          draft={pastedDraft}
-          onDraftChange={setPastedDraft}
-          onPreview={onPreviewPastedMarkdown}
-        />
-      )}
+        {view === 'paste' && (
+          <PasteEditor
+            draft={pastedDraft}
+            onDraftChange={setPastedDraft}
+            onPreview={onPreviewPastedMarkdown}
+          />
+        )}
 
-      {view === 'library' && (
-        <Library
-          key={folder ? folder.name : 'lib'}
-          files={files}
-          folderName={folder ? folder.name : ''}
-          cache={cacheRef.current}
-          indexed={indexed}
-          query={query}
-          scope={scope}
-          viewMode={viewMode}
-          onOpen={openEntry}
-        />
-      )}
+        {view === 'library' && (
+          <Library
+            key={folder ? folder.name : 'lib'}
+            files={files}
+            folderName={folder ? folder.name : ''}
+            cache={cacheRef.current}
+            indexed={indexed}
+            query={query}
+            scope={scope}
+            viewMode={viewMode}
+            onOpen={openEntry}
+          />
+        )}
 
-      {view === 'settings' && (
-        <SettingsPage
-          rules={excludes}
-          theme={theme}
-          accent={accent}
-          historyLimit={historyLimit}
-          onThemeSelect={setTheme}
-          onAccentSelect={setAccent}
-          onHistoryLimitSelect={pickHistoryLimit}
-          onAdd={(rule) => applyExcludes([...excludes, rule])}
-          onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
-          onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
-        />
-      )}
+        {view === 'settings' && (
+          <SettingsPage
+            rules={excludes}
+            theme={theme}
+            accent={accent}
+            historyLimit={historyLimit}
+            onThemeSelect={setTheme}
+            onAccentSelect={setAccent}
+            onHistoryLimitSelect={pickHistoryLimit}
+            onAdd={(rule) => applyExcludes([...excludes, rule])}
+            onRemove={(i) => applyExcludes(excludes.filter((_, j) => j !== i))}
+            onReset={() => applyExcludes(DEFAULT_EXCLUDES)}
+          />
+        )}
 
-      {view === 'preview' && (
-        <Preview
-          key={activeRevision}
-          entry={active}
-          text={text}
-          onProcessingChange={onPreviewProcessingChange}
-          setText={setText}
-          tableState={tableState}
-          setTableState={setTableState}
-          theme={theme}
-          folderHandle={folder ? folder.handle : null}
-          mode={mode}
-          editorFont={editorFont}
-          widthVar={
-            (WIDTH_OPTIONS.find((o) => o.key === widthMode) || WIDTH_OPTIONS[0])
-              .px
-          }
-        />
-      )}
+        {view === 'preview' && (
+          <Preview
+            key={activeRevision}
+            entry={active}
+            text={text}
+            onProcessingChange={onPreviewProcessingChange}
+            setText={setText}
+            tableState={tableState}
+            setTableState={setTableState}
+            theme={theme}
+            folderHandle={folder ? folder.handle : null}
+            mode={mode}
+            editorFont={editorFont}
+            widthVar={
+              (
+                WIDTH_OPTIONS.find((o) => o.key === widthMode) ||
+                WIDTH_OPTIONS[0]
+              ).px
+            }
+          />
+        )}
+      </div>
 
       {showRecents && (
         <div
