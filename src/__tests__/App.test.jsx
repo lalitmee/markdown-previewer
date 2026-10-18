@@ -19,17 +19,18 @@ const historyMock = vi.hoisted(() => {
   });
   return store;
 });
-vi.mock('../lib/history', () => ({ createHistory: () => historyMock }));
-vi.mock('../lib/fs-access', () => ({
-  requestPermission: async () => true,
-  readFileText: async () => '# recent file',
-  listMdFiles: async () => [],
-  isFsaSupported: () => true,
-  pickSingleFile: async () => null,
-  pickFolder: async () => null,
-  saveFileText: async () => {},
-  inlineImages: async (html) => html,
+const fsMock = vi.hoisted(() => ({
+  requestPermission: vi.fn(async () => true),
+  readFileText: vi.fn(async () => '# recent file'),
+  listMdFiles: vi.fn(async () => []),
+  isFsaSupported: vi.fn(() => true),
+  pickSingleFile: vi.fn(async () => null),
+  pickFolder: vi.fn(async () => null),
+  saveFileText: vi.fn(async () => {}),
+  inlineImages: vi.fn(async (html) => html),
 }));
+vi.mock('../lib/history', () => ({ createHistory: () => historyMock }));
+vi.mock('../lib/fs-access', () => fsMock);
 
 let host;
 let root;
@@ -44,6 +45,14 @@ beforeEach(() => {
   });
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   historyMock.items = [];
+  fsMock.requestPermission.mockReset().mockResolvedValue(true);
+  fsMock.readFileText.mockReset().mockResolvedValue('# recent file');
+  fsMock.listMdFiles.mockReset().mockResolvedValue([]);
+  fsMock.isFsaSupported.mockReset().mockReturnValue(true);
+  fsMock.pickSingleFile.mockReset().mockResolvedValue(null);
+  fsMock.pickFolder.mockReset().mockResolvedValue(null);
+  fsMock.saveFileText.mockReset().mockResolvedValue(undefined);
+  fsMock.inlineImages.mockReset().mockImplementation(async (html) => html);
   vi.clearAllMocks();
   historyMock.add.mockReset();
   historyMock.add.mockImplementation(async () => {});
@@ -62,8 +71,23 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  vi.useRealTimers();
   delete globalThis.IS_REACT_ACT_ENVIRONMENT;
 });
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+async function showDelayedStatus() {
+  await act(async () => vi.advanceTimersByTimeAsync(300));
+}
 
 describe('pasted Markdown', () => {
   it('animates between the start screen and paste editor', async () => {
@@ -173,6 +197,245 @@ describe('drag and drop', () => {
     );
     expect(host.querySelector('.library')).not.toBeNull();
     expect(historyMock.add).toHaveBeenCalled();
+  });
+});
+
+describe('file and folder processing feedback', () => {
+  beforeEach(() => vi.useFakeTimers());
+
+  function drop(item) {
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', {
+      value: { items: [item], files: [] },
+    });
+    host.querySelector('.dropzone').dispatchEvent(event);
+  }
+
+  it('reports folder scanning and indexed progress after selection', async () => {
+    const scan = deferred();
+    const firstRead = deferred();
+    const secondRead = deferred();
+    const files = [
+      { name: 'one.md', path: 'one.md', handle: { name: 'one.md' } },
+      { name: 'two.md', path: 'two.md', handle: { name: 'two.md' } },
+    ];
+    fsMock.pickFolder.mockResolvedValue({ name: 'docs' });
+    fsMock.listMdFiles.mockReturnValue(scan.promise);
+    fsMock.readFileText
+      .mockReturnValueOnce(firstRead.promise)
+      .mockReturnValueOnce(secondRead.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+    await showDelayedStatus();
+
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Scanning folder: docs',
+    );
+
+    await act(async () => scan.resolve(files));
+    expect(host.querySelector('.library')).not.toBeNull();
+    expect(host.querySelector('.result-count').textContent).toContain(
+      'Indexing… 0/2',
+    );
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Loading Markdown',
+    );
+    expect(host.querySelector('[role="status"]').textContent).toContain('0/2');
+
+    await act(async () => firstRead.resolve('# One'));
+    expect(host.querySelector('.result-count').textContent).toContain(
+      'Indexing… 1/2',
+    );
+    expect(host.querySelector('[role="status"]').textContent).toContain('1/2');
+
+    await act(async () => secondRead.resolve('# Two'));
+    expect(host.querySelector('.result-count').textContent).toContain(
+      '2 files',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('reports scanning when opening a folder from history', async () => {
+    const scan = deferred();
+    historyMock.items = [
+      { name: 'archive', kind: 'directory', handle: { name: 'archive' } },
+    ];
+    fsMock.listMdFiles.mockReturnValue(scan.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('[aria-label="Recent files and folders"]').click(),
+    );
+    await act(async () => host.querySelector('.history-open').click());
+    await showDelayedStatus();
+
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Scanning folder: archive',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => scan.resolve([]));
+    expect(host.querySelector('.library')).not.toBeNull();
+    expect(host.querySelector('.empty-state').textContent).toContain(
+      'No markdown files found',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('reports a file read while opening a selected file', async () => {
+    const read = deferred();
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'selected.md' });
+    fsMock.readFileText.mockReturnValue(read.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('button.btn.secondary:last-child').click(),
+    );
+    await showDelayedStatus();
+
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Reading file: selected.md',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => read.resolve('# Selected'));
+    expect(host.querySelector('.file-title').textContent).toBe('selected.md');
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('reports a file read while opening a file from history', async () => {
+    const read = deferred();
+    historyMock.items = [
+      { name: 'recent.md', kind: 'file', handle: { name: 'recent.md' } },
+    ];
+    fsMock.readFileText.mockReturnValue(read.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('[aria-label="Recent files and folders"]').click(),
+    );
+    await act(async () => host.querySelector('.history-open').click());
+    await showDelayedStatus();
+
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Reading file: recent.md',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => read.resolve('# Recent'));
+    expect(host.querySelector('.file-title').textContent).toBe('recent.md');
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('clears feedback after permission is denied for a recent file', async () => {
+    const permission = deferred();
+    historyMock.items = [
+      { name: 'locked.md', kind: 'file', handle: { name: 'locked.md' } },
+    ];
+    fsMock.requestPermission.mockReturnValue(permission.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('[aria-label="Recent files and folders"]').click(),
+    );
+    await act(async () => host.querySelector('.history-open').click());
+    await showDelayedStatus();
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Opening recent item: locked.md',
+    );
+
+    await act(async () => permission.resolve(false));
+
+    expect(host.querySelector('.picker')).not.toBeNull();
+    expect(host.querySelector('.toast').textContent).toContain(
+      'Permission denied',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('reports reading a dropped file', async () => {
+    const read = deferred();
+    const file = { name: 'dropped.md', text: () => read.promise };
+    const handle = { kind: 'file', name: file.name, getFile: async () => file };
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      drop({
+        kind: 'file',
+        getAsFileSystemHandle: () => Promise.resolve(handle),
+        getAsFile: () => file,
+      }),
+    );
+    await showDelayedStatus();
+
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Reading file: dropped.md',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => read.resolve('# Dropped'));
+    expect(host.querySelector('.file-title').textContent).toBe('dropped.md');
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('clears busy state and shows a notice when folder scanning fails', async () => {
+    fsMock.pickFolder.mockResolvedValue({ name: 'broken' });
+    fsMock.listMdFiles.mockRejectedValue(new Error('scan failed'));
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.toast')).not.toBeNull();
+    expect(host.querySelector('.library')).toBeNull();
+  });
+
+  it('clears busy state and shows a notice when a selected file read fails', async () => {
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'broken.md' });
+    fsMock.readFileText.mockRejectedValue(new Error('read failed'));
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('button.btn.secondary:last-child').click(),
+    );
+
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('.toast')).not.toBeNull();
+    expect(host.querySelector('.preview-page')).toBeNull();
+  });
+
+  it('does not let an older read replace the screen or clear newer activity', async () => {
+    const oldRead = deferred();
+    const newRead = deferred();
+    fsMock.pickSingleFile
+      .mockResolvedValueOnce({ name: 'old.md' })
+      .mockResolvedValueOnce({ name: 'new.md' });
+    fsMock.readFileText
+      .mockReturnValueOnce(oldRead.promise)
+      .mockReturnValueOnce(newRead.promise);
+
+    await act(async () => root.render(createElement(App)));
+    const openButton = () =>
+      host.querySelector('button.btn.secondary:last-child');
+    await act(async () => openButton().click());
+    await act(async () => host.querySelector('[aria-label="Go home"]').click());
+    await act(async () => openButton().click());
+    await showDelayedStatus();
+
+    await act(async () => oldRead.resolve('# Old'));
+    expect(host.querySelector('.picker')).not.toBeNull();
+    expect(host.querySelector('[role="status"]').textContent).toContain(
+      'Reading file: new.md',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => newRead.resolve('# New'));
+    expect(host.querySelector('.file-title').textContent).toBe('new.md');
+    expect(host.querySelector('.md-body h1').textContent).toBe('New');
   });
 });
 
