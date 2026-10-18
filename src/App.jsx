@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
@@ -136,7 +136,19 @@ export default function App() {
   const viewRef = useRef(view);
   const historyLimitRequestRef = useRef(0);
   const operationIdRef = useRef(0);
+  const previewActivityIdRef = useRef(null);
   viewRef.current = view;
+
+  const onPreviewProcessingChange = useCallback((next) => {
+    if (next) {
+      previewActivityIdRef.current = next.id;
+      setActivity(next);
+      return;
+    }
+    const id = previewActivityIdRef.current;
+    setActivity((current) => (current?.id === id ? null : current));
+    previewActivityIdRef.current = null;
+  }, []);
 
   function startOperation(message) {
     const id = ++operationIdRef.current;
@@ -734,6 +746,7 @@ export default function App() {
           key={activeRevision}
           entry={active}
           text={text}
+          onProcessingChange={onPreviewProcessingChange}
           setText={setText}
           tableState={tableState}
           setTableState={setTableState}

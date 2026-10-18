@@ -2,6 +2,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
+import * as markdown from '../lib/markdown';
 
 const historyMock = vi.hoisted(() => {
   const store = {
@@ -719,5 +720,156 @@ describe('App recent-item limit', () => {
     expect(window.location.pathname).toBe('/');
     expect(host.querySelector('.picker')).not.toBeNull();
     expect(host.querySelector('[aria-label="Preview"]')).toBeNull();
+  });
+});
+
+describe('preview processing feedback', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('reports delayed rendering for pasted Markdown and clears when rendered', async () => {
+    const render = deferred();
+    vi.spyOn(markdown, 'renderMarkdown').mockReturnValueOnce(render.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+    const input = host.querySelector('#pasted-markdown');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# Pasted preview');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+    await showDelayedStatus();
+
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Rendering preview',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => render.resolve('<h1>Pasted preview</h1>'));
+
+    expect(host.querySelector('.md-body h1').textContent).toBe(
+      'Pasted preview',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('reports delayed rendering for a file preview', async () => {
+    const render = deferred();
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'large.md' });
+    fsMock.readFileText.mockResolvedValue('# Large file');
+    vi.spyOn(markdown, 'renderMarkdown').mockReturnValueOnce(render.promise);
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('button.btn.secondary:last-child').click(),
+    );
+    await showDelayedStatus();
+
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Rendering preview',
+    );
+
+    await act(async () => render.resolve('<h1>Large file</h1>'));
+
+    expect(host.querySelector('.md-body h1').textContent).toBe('Large file');
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('does not let an obsolete render clear a newer preview status', async () => {
+    const oldRender = deferred();
+    const newRender = deferred();
+    vi.spyOn(markdown, 'renderMarkdown')
+      .mockReturnValueOnce(oldRender.promise)
+      .mockReturnValueOnce(newRender.promise);
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'old.md' });
+    fsMock.readFileText.mockResolvedValue('# Old preview');
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('button.btn.secondary:last-child').click(),
+    );
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    await act(async () => host.querySelector('.dz-actions button').click());
+    const input = host.querySelector('#pasted-markdown');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# New preview');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+    await showDelayedStatus();
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Rendering preview',
+    );
+
+    await act(async () => oldRender.resolve('<h1>Old preview</h1>'));
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Rendering preview',
+    );
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => newRender.resolve('<h1>New preview</h1>'));
+    expect(host.querySelector('.md-body h1').textContent).toBe('New preview');
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('does not flash status for a quick preview render', async () => {
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+    const input = host.querySelector('#pasted-markdown');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# Quick preview');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+    await act(async () => vi.advanceTimersByTimeAsync(300));
+
+    expect(host.querySelector('.md-body h1').textContent).toBe('Quick preview');
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    expect(host.querySelector('.app').getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('delays status for a later preview instead of reusing visibility', async () => {
+    const firstRender = deferred();
+    const secondRender = deferred();
+    fsMock.pickSingleFile
+      .mockResolvedValueOnce({ name: 'first.md' })
+      .mockResolvedValueOnce({ name: 'second.md' });
+    fsMock.readFileText
+      .mockResolvedValueOnce('# First')
+      .mockResolvedValueOnce('# Second');
+    vi.spyOn(markdown, 'renderMarkdown')
+      .mockReturnValueOnce(firstRender.promise)
+      .mockReturnValueOnce(secondRender.promise);
+
+    await act(async () => root.render(createElement(App)));
+    const openButton = () =>
+      host.querySelector('button.btn.secondary:last-child');
+    await act(async () => openButton().click());
+    await showDelayedStatus();
+    expect(host.querySelector('[role="status"]')).not.toBeNull();
+    await act(async () => firstRender.resolve('<h1>First</h1>'));
+    expect(host.querySelector('[role="status"]')).toBeNull();
+
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    await act(async () => openButton().click());
+
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    await showDelayedStatus();
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Rendering preview',
+    );
+    await act(async () => secondRender.resolve('<h1>Second</h1>'));
+    expect(host.querySelector('[role="status"]')).toBeNull();
   });
 });
