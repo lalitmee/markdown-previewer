@@ -90,7 +90,7 @@ export default function TableModal({
       dialog.classList.add('table-dialog-locked');
       heightLockedRef.current = true;
     }
-  }, [tableHtml, tableIndex, tableState, searchQuery]);
+  }, [tableHtml, tableIndex, tableState, searchQuery, currentView.hidden]);
 
   useEffect(() => {
     if (menuOpen) searchRef.current?.focus();
