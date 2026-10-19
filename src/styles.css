@@ -1138,14 +1138,49 @@ body {
   max-width: 100%;
   border-radius: 6px;
 }
+.md-body .md-image-download {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.md-body .md-asset-download {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--bor);
+  border-radius: 7px;
+  color: var(--fg);
+  background: var(--bg);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.md-body .md-image-download:hover .md-asset-download,
+.md-body .md-asset-download:focus-visible {
+  opacity: 1;
+}
 .md-body ul.contains-task-list {
   list-style: none;
   padding-left: 8px;
 }
 .md-body .mdiagram {
+  position: relative;
   cursor: zoom-in;
   text-align: center;
   padding: 8px;
+}
+.md-body .mdiagram:hover .md-asset-download {
+  opacity: 1;
+}
+@media (hover: none) {
+  .md-body .md-asset-download {
+    opacity: 1;
+  }
 }
 .md-body .mdiagram svg {
   max-width: 100%;

@@ -819,6 +819,7 @@ export default function App() {
             key={activeRevision}
             entry={active}
             text={text}
+            onNotice={setNotice}
             onProcessingChange={onPreviewProcessingChange}
             setText={setText}
             tableState={tableState}
