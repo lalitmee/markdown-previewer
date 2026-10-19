@@ -121,6 +121,28 @@ export default function TopBar({
       )}
 
       <div className="topbar-right">
+        {doc && (
+          <details className="export-menu">
+            <summary className="btn secondary">Export</summary>
+            <div className="export-menu-items">
+              <button
+                type="button"
+                aria-label="Export HTML"
+                onClick={doc.onExportHtml}
+              >
+                HTML
+              </button>
+              <button
+                type="button"
+                aria-label="Export PDF"
+                disabled={!doc.onExportPdf}
+                onClick={doc.onExportPdf}
+              >
+                PDF
+              </button>
+            </div>
+          </details>
+        )}
         {library && (
           <div className="view-toggle" role="group" aria-label="File list view">
             <button

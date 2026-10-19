@@ -12,6 +12,7 @@ import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
 import { isMarkdownName } from './lib/search';
+import { buildStandaloneHtml } from './lib/documentExport';
 import {
   pickSingleFile,
   pickFolder,
@@ -661,6 +662,32 @@ export default function App() {
     });
   }
 
+  async function exportHtml() {
+    try {
+      const html = await buildStandaloneHtml({
+        text,
+        theme,
+        folderHandle: folder?.handle || null,
+        activePath: active?.path || '',
+        title: active?.name || '',
+      });
+      const title = new DOMParser()
+        .parseFromString(html, 'text/html')
+        .querySelector('title')?.textContent;
+      const filename = (title || active?.name || 'Untitled document')
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .trim();
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${filename || 'Untitled document'}.html`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setNotice(`Export failed: ${error.message || error}`);
+    }
+  }
+
   const doc =
     view === 'preview' && active
       ? {
@@ -681,6 +708,7 @@ export default function App() {
           onWidth: cycleWidth,
           canSave: canSave(),
           onSave: () => onSave(text),
+          onExportHtml: exportHtml,
         }
       : null;
 

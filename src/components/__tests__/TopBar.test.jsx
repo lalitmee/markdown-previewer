@@ -3,12 +3,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import TopBar from '../TopBar';
 
-function renderTopBar(library = {}) {
+function renderTopBar(library = {}, doc = null) {
   const markup = renderToStaticMarkup(
     createElement(TopBar, {
       theme: 'light',
       onToggleTheme: () => {},
-      doc: null,
+      doc,
       onHome: () => {},
       library: { query: '', scope: 'name', onQuery: () => {}, ...library },
     }),
@@ -85,5 +85,16 @@ describe('TopBar settings', () => {
     ).toBe('Back to app');
     expect(left.querySelector('.brand span')).toBeNull();
     expect(left.querySelector('.topbar-title').textContent).toBe('Settings');
+  });
+});
+
+describe('TopBar exports', () => {
+  it('shows an accessible export menu for an open document', () => {
+    const container = renderTopBar({}, { title: 'notes.md' });
+    const menu = container.querySelector('.export-menu');
+
+    expect(menu.querySelector('summary').textContent).toContain('Export');
+    expect(menu.querySelector('[aria-label="Export HTML"]')).not.toBeNull();
+    expect(menu.querySelector('[aria-label="Export PDF"]').disabled).toBe(true);
   });
 });
