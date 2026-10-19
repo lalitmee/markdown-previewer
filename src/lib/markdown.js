@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import { escapeHtml } from './search';
 import { parsePlan, planToHtml } from './plan';
 
-let initializedTheme = null;
+let initializedMermaidConfig = null;
 
 function addHeadingIds(html) {
   const container = document.createElement('div');
@@ -152,7 +152,7 @@ export function extractMermaidFences(src) {
  * Render markdown with GFM, sanitize against XSS, render mermaid diagrams
  * (lazy-loaded) and highlight code blocks. Returns an HTML string.
  */
-export async function renderMarkdown(text, theme = 'light') {
+export async function renderMarkdown(text, theme = 'light', options = {}) {
   const plan = parsePlan(text);
   if (plan) {
     let html = DOMPurify.sanitize(planToHtml(plan));
@@ -169,12 +169,16 @@ export async function renderMarkdown(text, theme = 'light') {
   let mermaidLib = null;
   if (diagrams.length) {
     mermaidLib = (await import('mermaid')).default;
-    if (initializedTheme !== theme) {
-      mermaidLib.initialize({
-        startOnLoad: false,
-        theme: theme === 'dark' ? 'dark' : 'default',
-      });
-      initializedTheme = theme;
+    const config = {
+      startOnLoad: false,
+      theme: theme === 'dark' ? 'dark' : 'default',
+    };
+    if (options.htmlLabels !== undefined)
+      config.htmlLabels = options.htmlLabels;
+    const configKey = JSON.stringify(config);
+    if (initializedMermaidConfig !== configKey) {
+      mermaidLib.initialize(config);
+      initializedMermaidConfig = configKey;
     }
   }
 

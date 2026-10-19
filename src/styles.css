@@ -58,6 +58,7 @@ body {
 }
 
 .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
   font-variation-settings:
     'FILL' 0,
     'wght' 400,
@@ -140,6 +141,50 @@ body {
   gap: 8px;
   flex-shrink: 0;
   white-space: nowrap;
+}
+.export-menu {
+  position: relative;
+}
+.export-menu summary {
+  list-style: none;
+  cursor: pointer;
+}
+.export-menu summary::-webkit-details-marker {
+  display: none;
+}
+.export-menu-items {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--bor);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px #0002;
+}
+.export-menu-items button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.export-menu-items button:hover:not(:disabled),
+.export-menu-items button:focus-visible {
+  background: var(--hover);
+}
+.export-menu-items button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .search-group {
@@ -1094,14 +1139,49 @@ body {
   max-width: 100%;
   border-radius: 6px;
 }
+.md-body .md-image-download {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.md-body .md-asset-download {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--bor);
+  border-radius: 7px;
+  color: var(--fg);
+  background: var(--bg);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.md-body .md-image-download:hover .md-asset-download,
+.md-body .md-asset-download:focus-visible {
+  opacity: 1;
+}
 .md-body ul.contains-task-list {
   list-style: none;
   padding-left: 8px;
 }
 .md-body .mdiagram {
+  position: relative;
   cursor: zoom-in;
   text-align: center;
   padding: 8px;
+}
+.md-body .mdiagram:hover .md-asset-download {
+  opacity: 1;
+}
+@media (hover: none) {
+  .md-body .md-asset-download {
+    opacity: 1;
+  }
 }
 .md-body .mdiagram svg {
   max-width: 100%;
@@ -1297,11 +1377,14 @@ body {
 }
 .table-dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--pbor);
+}
+.table-dialog-header > div:first-child {
+  min-width: 0;
 }
 .table-dialog-header h2 {
   margin: 0;
@@ -1313,11 +1396,31 @@ body {
   font-size: 12px;
 }
 .table-dialog-count {
-  align-self: center;
-  margin-left: auto;
   color: var(--pmut);
   font-size: 12px;
   white-space: nowrap;
+}
+.table-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.table-dialog-search {
+  flex: 1 1 240px;
+  min-width: 120px;
+  max-width: 280px;
+}
+.table-dialog-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--pfg);
+  outline: none;
 }
 .table-dialog-reset {
   display: inline-flex;
@@ -1588,10 +1691,8 @@ body {
     flex-wrap: wrap;
     padding: 12px;
   }
-  .table-dialog-count {
-    order: 3;
+  .table-dialog-actions {
     width: 100%;
-    margin-left: 0;
   }
   .table-dialog-body.md-body {
     padding: 12px;

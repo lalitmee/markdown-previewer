@@ -121,6 +121,7 @@ export async function inlineImages(html, folderHandle, activePath) {
   await Promise.all(
     imgs.map(async (img) => {
       const src = img.getAttribute('src');
+      if (src !== null) img.setAttribute('data-original-src', src);
       const data = await readImageDataUrl(folderHandle, dirOf(activePath), src);
       if (data) img.setAttribute('src', data);
     }),

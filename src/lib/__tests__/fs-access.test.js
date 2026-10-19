@@ -50,7 +50,7 @@ describe('inlineImages', () => {
       '',
       '| Light | Dark |',
       '| --- | --- |',
-      '| ![Calendar](docs/screenshots/calendar.png) | — |',
+      '| ![Calendar](docs/screenshots/calendar.png?size=small) | — |',
       '',
       '</details>',
     ].join('\n');
@@ -61,6 +61,9 @@ describe('inlineImages', () => {
     preview.innerHTML = html;
     expect(preview.querySelector('img').src).toMatch(
       /^data:image\/png;base64,/,
+    );
+    expect(preview.querySelector('img').dataset.originalSrc).toBe(
+      'docs/screenshots/calendar.png?size=small',
     );
     expect(folderHandle.getDirectoryHandle).toHaveBeenCalledWith('docs');
     expect(imageHandle.getFile).toHaveBeenCalledOnce();
@@ -87,13 +90,26 @@ describe('inlineImages', () => {
   it('leaves external image URLs untouched', async () => {
     const folderHandle = directory();
     const html = await inlineImages(
-      '<img src="https://example.com/image.png">',
+      '<img src="https://example.com/image.png?size=small">',
       folderHandle,
       'README.md',
     );
 
-    expect(html).toContain('src="https://example.com/image.png"');
+    expect(html).toContain('src="https://example.com/image.png?size=small"');
+    expect(html).toContain(
+      'data-original-src="https://example.com/image.png?size=small"',
+    );
     expect(folderHandle.getDirectoryHandle).not.toHaveBeenCalled();
+  });
+
+  it('preserves data URLs as the original image source', async () => {
+    const src = 'data:image/png;base64,aGVsbG8=';
+    const html = await inlineImages(`<img src="${src}">`, null, 'README.md');
+    const preview = document.createElement('div');
+    preview.innerHTML = html;
+
+    expect(preview.querySelector('img').getAttribute('src')).toBe(src);
+    expect(preview.querySelector('img').dataset.originalSrc).toBe(src);
   });
 
   it('does not resolve paths outside the selected folder', async () => {

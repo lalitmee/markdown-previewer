@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import * as markdown from '../lib/markdown';
+import * as documentExport from '../lib/documentExport';
 
 const historyMock = vi.hoisted(() => {
   const store = {
@@ -171,6 +172,120 @@ describe('pasted Markdown', () => {
     expect(host.querySelector('#pasted-markdown').value).toBe(
       '# Pasted heading',
     );
+  });
+});
+
+describe('document export', () => {
+  it('exports the latest editor text with active-file context', async () => {
+    const build = vi
+      .spyOn(documentExport, 'buildStandaloneHtml')
+      .mockResolvedValue('<!doctype html><title>Edited export</title>');
+    const createObjectURL = vi.fn(() => 'blob:export');
+    const revokeObjectURL = vi.fn();
+    const createDescriptor = Object.getOwnPropertyDescriptor(
+      URL,
+      'createObjectURL',
+    );
+    const revokeDescriptor = Object.getOwnPropertyDescriptor(
+      URL,
+      'revokeObjectURL',
+    );
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+
+    try {
+      fsMock.pickSingleFile.mockResolvedValue({ name: 'selected.md' });
+      fsMock.readFileText.mockResolvedValue('# Original');
+      await act(async () => root.render(createElement(App)));
+      await act(async () =>
+        host.querySelector('.dz-actions button:last-child').click(),
+      );
+      await act(async () => host.querySelector('[aria-label="Edit"]').click());
+      const editor = host.querySelector('.cm-content');
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          'value',
+        ).set.call(editor, '# Edited export');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await act(async () => host.querySelector('.export-menu summary').click());
+      await act(async () =>
+        host.querySelector('[aria-label="Export HTML"]').click(),
+      );
+
+      expect(build).toHaveBeenCalledWith({
+        text: '# Edited export',
+        theme: 'system',
+        folderHandle: null,
+        activePath: 'selected.md',
+        title: 'selected.md',
+      });
+      expect(createObjectURL).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'text/html' }),
+      );
+      expect(click).toHaveBeenCalledOnce();
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:export');
+    } finally {
+      if (createDescriptor)
+        Object.defineProperty(URL, 'createObjectURL', createDescriptor);
+      else delete URL.createObjectURL;
+      if (revokeDescriptor)
+        Object.defineProperty(URL, 'revokeObjectURL', revokeDescriptor);
+      else delete URL.revokeObjectURL;
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('builds the current HTML and downloads it as PDF', async () => {
+    const build = vi
+      .spyOn(documentExport, 'buildStandaloneHtml')
+      .mockResolvedValue('<!doctype html><title>Edited guide</title>');
+    const download = vi
+      .spyOn(documentExport, 'downloadPdf')
+      .mockResolvedValue(undefined);
+
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'selected.md' });
+    fsMock.readFileText.mockResolvedValue('# Original PDF guide');
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('.dz-actions button:last-child').click(),
+    );
+    await act(async () => host.querySelector('[aria-label="Edit"]').click());
+    const editor = host.querySelector('.cm-content');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(editor, '# Edited PDF guide');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.export-menu summary').click());
+    await act(async () =>
+      host.querySelector('[aria-label="Export PDF"]').click(),
+    );
+
+    expect(build).toHaveBeenCalledWith({
+      text: '# Edited PDF guide',
+      theme: 'system',
+      folderHandle: null,
+      activePath: 'selected.md',
+      title: 'selected.md',
+      mermaidHtmlLabels: false,
+    });
+    expect(download).toHaveBeenCalledWith({
+      html: '<!doctype html><title>Edited guide</title>',
+      title: 'Edited guide',
+    });
   });
 });
 

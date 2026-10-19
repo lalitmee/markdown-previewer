@@ -20,6 +20,7 @@ export default function Preview({
   editorFont,
   widthVar,
   onProcessingChange,
+  onNotice,
 }) {
   const [html, setHtml] = useState('');
   const [zoomSvg, setZoomSvg] = useState(null);
@@ -83,6 +84,57 @@ export default function Preview({
   }, [tableState, html, mode]);
 
   useEffect(() => {
+    const root = previewRef.current;
+    if (!root) return;
+    let imageNumber = 0;
+    let diagramNumber = 0;
+
+    root.querySelectorAll('.preview-document .md-body img').forEach((img) => {
+      imageNumber += 1;
+      if (img.parentElement.classList.contains('md-image-download')) return;
+      const source = img.dataset.originalSrc || img.getAttribute('src') || '';
+      const filename = source.startsWith('data:')
+        ? ''
+        : source.split(/[?#]/, 1)[0].split('/').pop();
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'md-asset-download';
+      button.dataset.assetDownload = 'image';
+      button.dataset.source = source;
+      button.dataset.filename = filename || `image-${imageNumber}`;
+      button.setAttribute(
+        'aria-label',
+        `Download image: ${filename || `image-${imageNumber}`}`,
+      );
+      button.title = button.getAttribute('aria-label');
+      button.innerHTML =
+        '<span class="material-symbols-outlined" aria-hidden="true">download</span>';
+      const wrapper = document.createElement('span');
+      wrapper.className = 'md-image-download';
+      img.before(wrapper);
+      wrapper.append(img, button);
+    });
+
+    root
+      .querySelectorAll('.preview-document .md-body .mdiagram')
+      .forEach((diagram) => {
+        diagramNumber += 1;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'md-asset-download';
+        button.dataset.assetDownload = 'diagram';
+        button.setAttribute(
+          'aria-label',
+          `Download diagram ${diagramNumber} as SVG`,
+        );
+        button.title = button.getAttribute('aria-label');
+        button.innerHTML =
+          '<span class="material-symbols-outlined" aria-hidden="true">download</span>';
+        diagram.append(button);
+      });
+  }, [html, mode]);
+
+  useEffect(() => {
     const scroller =
       mode === 'edit'
         ? previewRef.current?.querySelector('.split-right')
@@ -111,6 +163,13 @@ export default function Preview({
   }
 
   function onClick(e) {
+    const download = e.target.closest('button[data-asset-download]');
+    if (download) {
+      e.preventDefault();
+      e.stopPropagation();
+      void downloadAsset(download);
+      return;
+    }
     const link = e.target.closest('a[href]');
     if (
       link &&
@@ -163,6 +222,44 @@ export default function Preview({
     const expand = e.target.closest('.mp-expand');
     if (expand) {
       setExpandedTable({ index: Number(expand.dataset.t), opener: expand });
+    }
+  }
+
+  async function downloadAsset(button) {
+    try {
+      let blob;
+      let filename;
+      if (button.dataset.assetDownload === 'diagram') {
+        const svg = button.parentElement.querySelector('svg').outerHTML;
+        const diagrams = [...previewRef.current.querySelectorAll('.mdiagram')];
+        const number = diagrams.indexOf(button.parentElement) + 1;
+        blob = new Blob([svg], { type: 'image/svg+xml' });
+        filename = `diagram-${number}.svg`;
+      } else {
+        const image = button.parentElement.querySelector('img');
+        const source = image.getAttribute('src').startsWith('data:')
+          ? image.getAttribute('src')
+          : button.dataset.source;
+        const response = await fetch(source);
+        if (!response.ok) throw new Error('Image request failed');
+        blob = await response.blob();
+        filename = button.dataset.filename;
+        if (filename.startsWith('image-')) {
+          const extension = blob.type.split('/')[1]?.split('+')[0] || 'bin';
+          filename = `${filename}.${extension}`;
+        }
+        filename = filename.replace(/[\\/:*?"<>|]/g, '_');
+      }
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (_) {
+      onNotice?.("Can't download this image from its source");
     }
   }
 

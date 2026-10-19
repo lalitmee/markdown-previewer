@@ -45,7 +45,28 @@ function preview(entry) {
   return createElement(PreviewHarness, { entry, key: entry.path });
 }
 
+function setSearchValue(input, value) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(
+    input,
+    value,
+  );
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 describe('expanded table', () => {
+  it('groups the row count before search and close controls on the right', async () => {
+    await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
+    await act(async () => host.querySelector('.mp-expand').click());
+
+    const actions = host.querySelector('.table-dialog-actions');
+    expect(actions).not.toBeNull();
+    expect(Array.from(actions.children).map((node) => node.className)).toEqual([
+      'table-dialog-count',
+      'mp-filter-search table-dialog-search',
+      'table-dialog-close',
+    ]);
+  });
+
   it('toggles all filter values with one button', async () => {
     await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
     await act(async () => host.querySelector('.mp-expand').click());
@@ -107,9 +128,17 @@ describe('expanded table', () => {
     await act(async () =>
       host.querySelector('[aria-label="Hide column Status"]').click(),
     );
+    const search = host.querySelector('[aria-label="Search all table cells"]');
+    await act(async () => setSearchValue(search, 'closed'));
+    expect(host.querySelector('.table-dialog-count').textContent).toBe(
+      '0 of 2 rows · 1 column hidden',
+    );
 
     await act(async () => host.querySelector('.table-dialog-reset').click());
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Search all table cells"]').value,
+    ).toBe('');
     expect(host.querySelector('.table-dialog-count').textContent).toBe(
       '2 of 2 rows',
     );
@@ -117,6 +146,70 @@ describe('expanded table', () => {
     expect(host.querySelector('.mp-col-hidden')).toBeNull();
     expect(host.querySelector('.mp-table-summary').textContent).toBe('');
     expect(host.querySelector('.table-dialog-reset')).toBeNull();
+  });
+
+  it('searches all cells case-insensitively and updates the visible count', async () => {
+    await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
+    await act(async () => host.querySelector('.mp-expand').click());
+
+    const input = host.querySelector('[aria-label="Search all table cells"]');
+    expect(input).not.toBeNull();
+    await act(async () => setSearchValue(input, 'aLpH'));
+
+    expect(host.querySelector('.table-dialog-count').textContent).toBe(
+      '1 of 2 rows',
+    );
+    expect(
+      host.querySelectorAll('.table-dialog tbody tr:not(.mp-row-filtered)'),
+    ).toHaveLength(1);
+    expect(
+      host.querySelector('.table-dialog tbody tr:not(.mp-row-filtered)')
+        .textContent,
+    ).toContain('Alpha');
+  });
+
+  it('matches cells in hidden columns', async () => {
+    await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
+    await act(async () => host.querySelector('.mp-expand').click());
+    await act(async () =>
+      host.querySelector('[aria-label="Hide column Status"]').click(),
+    );
+
+    const input = host.querySelector('[aria-label="Search all table cells"]');
+    await act(async () => setSearchValue(input, 'closed'));
+
+    expect(host.querySelector('.table-dialog-count').textContent).toBe(
+      '1 of 2 rows · 1 column hidden',
+    );
+    expect(
+      host.querySelector('.table-dialog tbody tr:not(.mp-row-filtered)')
+        .textContent,
+    ).toContain('Beta');
+  });
+
+  it('composes search with column filters', async () => {
+    await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
+    await act(async () => host.querySelector('.mp-expand').click());
+    await act(async () =>
+      host.querySelector('[aria-label="Filter column Name"]').click(),
+    );
+    const beta = Array.from(
+      host.querySelectorAll('.mp-filter-values label'),
+    ).find((label) => label.textContent === 'Beta');
+    await act(async () => beta.querySelector('input').click());
+    await act(async () =>
+      host.querySelector('.mp-filter-menu-footer button:last-child').click(),
+    );
+
+    const input = host.querySelector('[aria-label="Search all table cells"]');
+    await act(async () => setSearchValue(input, 'closed'));
+
+    expect(host.querySelector('.table-dialog-count').textContent).toBe(
+      '0 of 2 rows',
+    );
+    expect(
+      host.querySelectorAll('.table-dialog tbody tr:not(.mp-row-filtered)'),
+    ).toHaveLength(0);
   });
 
   it('filters in the dialog, reflects the result in the document, and clears on file change', async () => {
@@ -142,6 +235,12 @@ describe('expanded table', () => {
     expect(host.querySelector('.table-dialog-count').textContent).toBe(
       '1 of 2 rows',
     );
+    await act(async () =>
+      setSearchValue(
+        host.querySelector('[aria-label="Search all table cells"]'),
+        'alpha',
+      ),
+    );
     await act(async () => host.querySelector('.table-dialog-close').click());
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.querySelector('.mp-table-summary').textContent).toBe(
@@ -152,6 +251,9 @@ describe('expanded table', () => {
     expect(host.querySelector('.table-dialog-count').textContent).toBe(
       '1 of 2 rows',
     );
+    expect(
+      host.querySelector('[aria-label="Search all table cells"]').value,
+    ).toBe('');
     await act(async () =>
       host.querySelector('[aria-label="Hide column Status"]').click(),
     );

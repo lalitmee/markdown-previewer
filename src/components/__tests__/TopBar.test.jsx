@@ -1,14 +1,15 @@
-import { createElement } from 'react';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import TopBar from '../TopBar';
 
-function renderTopBar(library = {}) {
+function renderTopBar(library = {}, doc = null) {
   const markup = renderToStaticMarkup(
     createElement(TopBar, {
       theme: 'light',
       onToggleTheme: () => {},
-      doc: null,
+      doc,
       onHome: () => {},
       library: { query: '', scope: 'name', onQuery: () => {}, ...library },
     }),
@@ -85,5 +86,90 @@ describe('TopBar settings', () => {
     ).toBe('Back to app');
     expect(left.querySelector('.brand span')).toBeNull();
     expect(left.querySelector('.topbar-title').textContent).toBe('Settings');
+  });
+});
+
+describe('TopBar exports', () => {
+  it('shows an accessible export menu for an open document', () => {
+    const container = renderTopBar({}, { title: 'notes.md' });
+    const menu = container.querySelector('.export-menu');
+
+    expect(menu.querySelector('summary').getAttribute('aria-label')).toBe(
+      'Export',
+    );
+    expect(
+      menu.querySelector('summary .material-symbols-outlined').textContent,
+    ).toBe('file_export');
+    expect(menu.querySelector('[aria-label="Export HTML"]')).not.toBeNull();
+    expect(menu.querySelector('[aria-label="Export PDF"]').disabled).toBe(true);
+    expect(
+      menu.querySelector(
+        '[aria-label="Export HTML"] .material-symbols-outlined',
+      ).textContent,
+    ).toBe('code');
+    expect(
+      menu.querySelector('[aria-label="Export HTML"]').textContent,
+    ).toContain('HTML');
+    expect(
+      menu.querySelector('[aria-label="Export PDF"] .material-symbols-outlined')
+        .textContent,
+    ).toBe('picture_as_pdf');
+    expect(
+      menu.querySelector('[aria-label="Export PDF"]').textContent,
+    ).toContain('PDF');
+  });
+
+  it('enables PDF export when an export handler is provided', () => {
+    const container = renderTopBar(
+      {},
+      {
+        title: 'notes.md',
+        onExportPdf: () => {},
+      },
+    );
+
+    expect(container.querySelector('[aria-label="Export PDF"]').disabled).toBe(
+      false,
+    );
+  });
+
+  it('closes the export menu when clicking outside', async () => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () =>
+      root.render(createElement(TopBar, { doc: { title: 'notes.md' } })),
+    );
+    const menu = host.querySelector('.export-menu');
+    await act(async () => menu.querySelector('summary').click());
+    expect(menu.open).toBe(true);
+
+    await act(async () =>
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })),
+    );
+    expect(menu.open).toBe(false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  it('closes the export menu when focus leaves it', async () => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const host = document.createElement('div');
+    const outside = document.createElement('button');
+    document.body.append(host, outside);
+    const root = createRoot(host);
+    await act(async () =>
+      root.render(createElement(TopBar, { doc: { title: 'notes.md' } })),
+    );
+    const menu = host.querySelector('.export-menu');
+    await act(async () => menu.querySelector('summary').click());
+    menu.querySelector('summary').focus();
+
+    await act(async () => outside.focus());
+    expect(menu.open).toBe(false);
+    await act(async () => root.unmount());
+    host.remove();
+    outside.remove();
   });
 });
