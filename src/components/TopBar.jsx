@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 export default function TopBar({
   doc,
@@ -10,6 +10,19 @@ export default function TopBar({
   settingsActive,
 }) {
   const searchRef = useRef(null);
+  const exportMenuRef = useRef(null);
+
+  useEffect(() => {
+    function closeOnOutsidePointer(event) {
+      if (!exportMenuRef.current?.contains(event.target)) {
+        exportMenuRef.current.open = false;
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () =>
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, []);
 
   function clearSearch() {
     library?.onQuery('');
@@ -122,15 +135,34 @@ export default function TopBar({
 
       <div className="topbar-right">
         {doc && (
-          <details className="export-menu">
-            <summary className="btn secondary">Export</summary>
+          <details
+            ref={exportMenuRef}
+            className="export-menu"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                event.currentTarget.open = false;
+              }
+            }}
+          >
+            <summary
+              className="btn secondary icon-btn"
+              aria-label="Export"
+              title="Export"
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">
+                file_export
+              </span>
+            </summary>
             <div className="export-menu-items">
               <button
                 type="button"
                 aria-label="Export HTML"
                 onClick={doc.onExportHtml}
               >
-                HTML
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  code
+                </span>
+                <span>HTML</span>
               </button>
               <button
                 type="button"
@@ -138,7 +170,10 @@ export default function TopBar({
                 disabled={!doc.onExportPdf}
                 onClick={doc.onExportPdf}
               >
-                PDF
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  picture_as_pdf
+                </span>
+                <span>PDF</span>
               </button>
             </div>
           </details>

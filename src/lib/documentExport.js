@@ -1,5 +1,10 @@
+import htmlToPdfmake from 'html-to-pdfmake';
+import pdfMake from 'pdfmake/build/pdfmake.js';
+import pdfFonts from 'pdfmake/build/vfs_fonts.js';
 import { inlineImages } from './fs-access';
 import { renderMarkdown } from './markdown';
+
+pdfMake.addVirtualFileSystem(pdfFonts);
 
 const DOCUMENT_STYLES = `
   :root { color-scheme: light; }
@@ -64,4 +69,58 @@ export async function buildStandaloneHtml({
 <main class="md-body">${content.innerHTML}</main>
 </body>
 </html>`;
+}
+
+export async function downloadPdf({ html, title }) {
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  parsed.querySelectorAll('img').forEach((image) => {
+    if (!image.src.startsWith('data:')) {
+      image.replaceWith(document.createTextNode(image.alt || ''));
+    }
+  });
+
+  const headings = parsed.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  const converted = htmlToPdfmake(parsed.body.innerHTML, { window });
+  const content = Array.isArray(converted) ? converted : [converted];
+  content.forEach((node) => {
+    if (/^H[1-6]$/.test(node.nodeName)) node.tocItem = true;
+  });
+  const pdfContent = [
+    { text: title, style: 'title' },
+    ...(headings.length > 1
+      ? [{ toc: { title: { text: 'Contents', style: 'tocTitle' } } }]
+      : []),
+    ...content,
+  ];
+  const filename = `${
+    String(title || 'Untitled document')
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .trim() || 'Untitled document'
+  }.pdf`;
+
+  return pdfMake
+    .createPdf({
+      info: { title },
+      pageSize: 'A4',
+      pageMargins: [48, 48, 48, 48],
+      content: pdfContent,
+      styles: {
+        title: {
+          fontSize: 22,
+          bold: true,
+          color: '#24292f',
+          margin: [0, 0, 0, 14],
+        },
+        tocTitle: { fontSize: 15, bold: true, margin: [0, 0, 0, 8] },
+        'html-h1': { fontSize: 18, bold: true },
+        'html-h2': { fontSize: 15, bold: true },
+      },
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 9,
+        margin: [0, 12, 0, 0],
+      }),
+    })
+    .download(filename);
 }

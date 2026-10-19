@@ -165,6 +165,9 @@ body {
   box-shadow: 0 4px 16px #0002;
 }
 .export-menu-items button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: 0;
   border-radius: 4px;
   padding: 8px 10px;

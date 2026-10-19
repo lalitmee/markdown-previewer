@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+import pdfMake from 'pdfmake/build/pdfmake.js';
+import * as documentExport from '../documentExport';
 import { buildStandaloneHtml } from '../documentExport';
+
+vi.mock('pdfmake/build/pdfmake.js', () => ({
+  default: {
+    addVirtualFileSystem: vi.fn(),
+    createPdf: vi.fn(() => ({ download: vi.fn() })),
+  },
+}));
 
 function directory(files = {}) {
   return {
@@ -101,5 +110,83 @@ describe('buildStandaloneHtml', () => {
     });
 
     expect(html).toContain('<title>A &amp; B &lt;guide&gt;.md</title>');
+  });
+});
+
+describe('downloadPdf', () => {
+  it('adds the title and page numbering and omits TOC for one heading', async () => {
+    await documentExport.downloadPdf({ html: '<p>Body</p>', title: 'Guide' });
+    expect(
+      pdfMake.createPdf.mock.calls.at(-1)[0].content.some((node) => node.toc),
+    ).toBe(false);
+
+    await documentExport.downloadPdf({
+      html: '<h1>Guide</h1><p>Body</p>',
+      title: 'Guide',
+    });
+
+    const definition = pdfMake.createPdf.mock.calls.at(-1)[0];
+    const pdf = pdfMake.createPdf.mock.results.at(-1).value;
+    expect(definition.content[0]).toMatchObject({
+      text: 'Guide',
+      style: 'title',
+    });
+    expect(definition.content.some((node) => node.toc)).toBe(false);
+    expect(definition.footer).toBeTypeOf('function');
+    expect(pdf.download).toHaveBeenCalledWith('Guide.pdf');
+  });
+
+  it('adds a compact table of contents for multiple headings', async () => {
+    await documentExport.downloadPdf({
+      html: '<h1>Guide</h1><h2>Details</h2>',
+      title: 'Guide',
+    });
+
+    const definition = pdfMake.createPdf.mock.calls.at(-1)[0];
+    expect(definition.content.some((node) => node.toc)).toBe(true);
+    expect(JSON.stringify(definition.content)).toContain('Details');
+  });
+
+  it('converts tables, code, links, images, and Mermaid SVG', async () => {
+    await documentExport.downloadPdf({
+      html: [
+        '<h1>Guide</h1>',
+        '<table><tr><th>A</th></tr><tr><td>Cell</td></tr></table>',
+        '<pre><code>const answer = 42;</code></pre>',
+        '<a href="https://example.com">Link</a>',
+        '<img src="data:image/png;base64,aW1hZ2U=">',
+        '<svg width="10" height="10" xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>',
+      ].join(''),
+      title: 'Guide',
+    });
+
+    const definition = pdfMake.createPdf.mock.calls.at(-1)[0];
+    const content = JSON.stringify(definition.content);
+    expect(content).toContain('Cell');
+    expect(content).toContain('const answer = 42;');
+    expect(content).toContain('https://example.com');
+    expect(content).toContain('data:image/png;base64');
+    expect(content).toContain('<svg');
+  });
+
+  it('degrades remote images to their alt text', async () => {
+    await documentExport.downloadPdf({
+      html: '<img src="https://example.com/blocked.png" alt="Remote image">',
+      title: 'Guide',
+    });
+
+    const content = JSON.stringify(pdfMake.createPdf.mock.calls.at(-1)[0]);
+    expect(content).toContain('Remote image');
+    expect(content).not.toContain('https://example.com/blocked.png');
+  });
+
+  it('rejects when the PDF download fails', async () => {
+    pdfMake.createPdf.mockReturnValueOnce({
+      download: vi.fn().mockRejectedValue(new Error('PDF failed')),
+    });
+
+    await expect(
+      documentExport.downloadPdf({ html: '<p>Body</p>', title: 'Guide' }),
+    ).rejects.toThrow('PDF failed');
   });
 });

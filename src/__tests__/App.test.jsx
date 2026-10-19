@@ -245,6 +245,38 @@ describe('document export', () => {
       vi.restoreAllMocks();
     }
   });
+
+  it('builds the current HTML and downloads it as PDF', async () => {
+    const build = vi
+      .spyOn(documentExport, 'buildStandaloneHtml')
+      .mockResolvedValue('<!doctype html><title>Edited guide</title>');
+    const download = vi
+      .spyOn(documentExport, 'downloadPdf')
+      .mockResolvedValue(undefined);
+
+    fsMock.pickSingleFile.mockResolvedValue({ name: 'selected.md' });
+    fsMock.readFileText.mockResolvedValue('# Edited guide');
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('.dz-actions button:last-child').click(),
+    );
+    await act(async () => host.querySelector('.export-menu summary').click());
+    await act(async () =>
+      host.querySelector('[aria-label="Export PDF"]').click(),
+    );
+
+    expect(build).toHaveBeenCalledWith({
+      text: '# Edited guide',
+      theme: 'system',
+      folderHandle: null,
+      activePath: 'selected.md',
+      title: 'selected.md',
+    });
+    expect(download).toHaveBeenCalledWith({
+      html: '<!doctype html><title>Edited guide</title>',
+      title: 'Edited guide',
+    });
+  });
 });
 
 describe('drag and drop', () => {
