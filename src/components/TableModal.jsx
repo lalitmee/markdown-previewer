@@ -284,6 +284,7 @@ export default function TableModal({
   function resetTable() {
     dragCleanupRef.current?.();
     setMenu(null);
+    setSearchQuery('');
     setTableState((state) => resetTableView(state, tableIndex));
     const scroller = bodyRef.current?.querySelector('.mp-table-scroll');
     if (scroller) {

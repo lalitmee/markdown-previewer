@@ -115,9 +115,17 @@ describe('expanded table', () => {
     await act(async () =>
       host.querySelector('[aria-label="Hide column Status"]').click(),
     );
+    const search = host.querySelector('[aria-label="Search all table cells"]');
+    await act(async () => setSearchValue(search, 'closed'));
+    expect(host.querySelector('.table-dialog-count').textContent).toBe(
+      '0 of 2 rows · 1 column hidden',
+    );
 
     await act(async () => host.querySelector('.table-dialog-reset').click());
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Search all table cells"]').value,
+    ).toBe('');
     expect(host.querySelector('.table-dialog-count').textContent).toBe(
       '2 of 2 rows',
     );
@@ -214,6 +222,12 @@ describe('expanded table', () => {
     expect(host.querySelector('.table-dialog-count').textContent).toBe(
       '1 of 2 rows',
     );
+    await act(async () =>
+      setSearchValue(
+        host.querySelector('[aria-label="Search all table cells"]'),
+        'alpha',
+      ),
+    );
     await act(async () => host.querySelector('.table-dialog-close').click());
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.querySelector('.mp-table-summary').textContent).toBe(
@@ -224,6 +238,9 @@ describe('expanded table', () => {
     expect(host.querySelector('.table-dialog-count').textContent).toBe(
       '1 of 2 rows',
     );
+    expect(
+      host.querySelector('[aria-label="Search all table cells"]').value,
+    ).toBe('');
     await act(async () =>
       host.querySelector('[aria-label="Hide column Status"]').click(),
     );
