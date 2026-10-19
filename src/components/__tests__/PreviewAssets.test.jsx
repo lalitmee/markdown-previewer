@@ -99,7 +99,9 @@ it('downloads the original image using its source filename', async () => {
   expect(anchorClick).toHaveBeenCalledOnce();
   expect(downloadedFilename).toBe('cover.png');
   expect(anchorWasConnected).toBe(true);
-  expect(revokeObjectURL).toHaveBeenCalledWith('blob:download');
+  await vi.waitFor(() =>
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:download'),
+  );
 });
 
 it('downloads a Mermaid diagram as an SVG with a numbered filename', async () => {
