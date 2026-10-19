@@ -696,6 +696,7 @@ export default function App() {
         folderHandle: folder?.handle || null,
         activePath: active?.path || '',
         title: active?.name || '',
+        mermaidHtmlLabels: false,
       });
       const title =
         new DOMParser()

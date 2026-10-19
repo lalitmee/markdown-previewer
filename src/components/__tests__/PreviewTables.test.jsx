@@ -54,6 +54,19 @@ function setSearchValue(input, value) {
 }
 
 describe('expanded table', () => {
+  it('groups the row count before search and close controls on the right', async () => {
+    await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
+    await act(async () => host.querySelector('.mp-expand').click());
+
+    const actions = host.querySelector('.table-dialog-actions');
+    expect(actions).not.toBeNull();
+    expect(Array.from(actions.children).map((node) => node.className)).toEqual([
+      'table-dialog-count',
+      'mp-filter-search table-dialog-search',
+      'table-dialog-close',
+    ]);
+  });
+
   it('toggles all filter values with one button', async () => {
     await act(async () => root.render(preview({ path: 'one.md', handle: {} })));
     await act(async () => host.querySelector('.mp-expand').click());

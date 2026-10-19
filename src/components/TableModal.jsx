@@ -317,46 +317,48 @@ export default function TableModal({
             <h2 id="table-dialog-title">Table {tableIndex + 1}</h2>
             <p>Filter rows, resize columns, or hide columns.</p>
           </div>
-          <div className="mp-filter-search table-dialog-search">
-            <span className="material-symbols-outlined" aria-hidden="true">
-              search
-            </span>
-            <input
-              type="search"
-              placeholder="Search table"
-              aria-label="Search all table cells"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+          <div className="table-dialog-actions">
+            <span
+              className="table-dialog-count"
+              ref={countRef}
+              aria-live="polite"
             />
-          </div>
-          <span
-            className="table-dialog-count"
-            ref={countRef}
-            aria-live="polite"
-          />
-          {hasCustomizations && (
+            <div className="mp-filter-search table-dialog-search">
+              <span className="material-symbols-outlined" aria-hidden="true">
+                search
+              </span>
+              <input
+                type="search"
+                placeholder="Search table"
+                aria-label="Search all table cells"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </div>
+            {hasCustomizations && (
+              <button
+                className="table-dialog-reset"
+                type="button"
+                onClick={resetTable}
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  restart_alt
+                </span>
+                Reset table
+              </button>
+            )}
             <button
-              className="table-dialog-reset"
+              className="table-dialog-close"
               type="button"
-              onClick={resetTable}
+              ref={closeRef}
+              onClick={requestClose}
+              aria-label="Close expanded table"
             >
               <span className="material-symbols-outlined" aria-hidden="true">
-                restart_alt
+                close
               </span>
-              Reset table
             </button>
-          )}
-          <button
-            className="table-dialog-close"
-            type="button"
-            ref={closeRef}
-            onClick={requestClose}
-            aria-label="Close expanded table"
-          >
-            <span className="material-symbols-outlined" aria-hidden="true">
-              close
-            </span>
-          </button>
+          </div>
         </header>
         <div
           className="md-body table-dialog-body"

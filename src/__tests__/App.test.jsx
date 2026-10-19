@@ -255,22 +255,32 @@ describe('document export', () => {
       .mockResolvedValue(undefined);
 
     fsMock.pickSingleFile.mockResolvedValue({ name: 'selected.md' });
-    fsMock.readFileText.mockResolvedValue('# Edited guide');
+    fsMock.readFileText.mockResolvedValue('# Original PDF guide');
     await act(async () => root.render(createElement(App)));
     await act(async () =>
       host.querySelector('.dz-actions button:last-child').click(),
     );
+    await act(async () => host.querySelector('[aria-label="Edit"]').click());
+    const editor = host.querySelector('.cm-content');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(editor, '# Edited PDF guide');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     await act(async () => host.querySelector('.export-menu summary').click());
     await act(async () =>
       host.querySelector('[aria-label="Export PDF"]').click(),
     );
 
     expect(build).toHaveBeenCalledWith({
-      text: '# Edited guide',
+      text: '# Edited PDF guide',
       theme: 'system',
       folderHandle: null,
       activePath: 'selected.md',
       title: 'selected.md',
+      mermaidHtmlLabels: false,
     });
     expect(download).toHaveBeenCalledWith({
       html: '<!doctype html><title>Edited guide</title>',

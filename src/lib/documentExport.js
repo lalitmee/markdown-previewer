@@ -42,8 +42,13 @@ export async function buildStandaloneHtml({
   folderHandle,
   activePath = '',
   title = '',
+  mermaidHtmlLabels,
 }) {
-  const rendered = await renderMarkdown(text, theme);
+  const rendered = await renderMarkdown(
+    text,
+    theme,
+    mermaidHtmlLabels === undefined ? {} : { htmlLabels: mermaidHtmlLabels },
+  );
   const inlined = await inlineImages(rendered, folderHandle, activePath);
   const content = document.createElement('div');
   content.innerHTML = inlined;
@@ -73,6 +78,21 @@ export async function buildStandaloneHtml({
 
 export async function downloadPdf({ html, title }) {
   const parsed = new DOMParser().parseFromString(html, 'text/html');
+  for (const diagram of parsed.querySelectorAll('.mdiagram svg')) {
+    const image = new Image();
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(diagram))}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    canvas.getContext('2d').drawImage(image, 0, 0);
+    diagram.replaceWith(
+      Object.assign(document.createElement('img'), {
+        src: canvas.toDataURL('image/png'),
+        alt: 'Mermaid diagram',
+      }),
+    );
+  }
   parsed.querySelectorAll('img').forEach((image) => {
     if (!image.src.startsWith('data:')) {
       image.replaceWith(document.createTextNode(image.alt || ''));

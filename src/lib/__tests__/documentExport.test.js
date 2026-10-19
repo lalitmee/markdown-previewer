@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import mermaid from 'mermaid';
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import * as documentExport from '../documentExport';
 import { buildStandaloneHtml } from '../documentExport';
@@ -167,6 +168,58 @@ describe('downloadPdf', () => {
     expect(content).toContain('https://example.com');
     expect(content).toContain('data:image/png;base64');
     expect(content).toContain('<svg');
+  });
+
+  it('inlines folder images into the PDF conversion input', async () => {
+    const folderHandle = directory({ 'local.png': imageFileHandle() });
+    const html = await buildStandaloneHtml({
+      text: '![Local](local.png)',
+      folderHandle,
+      activePath: 'README.md',
+    });
+    await documentExport.downloadPdf({ html, title: 'Guide' });
+
+    expect(
+      JSON.stringify(pdfMake.createPdf.mock.calls.at(-1)[0].content),
+    ).toContain('data:image/png;base64,');
+  });
+
+  it('rasterizes Mermaid diagrams before converting them to PDF', async () => {
+    const initialize = vi.spyOn(mermaid, 'initialize');
+    vi.stubGlobal(
+      'Image',
+      class {
+        naturalWidth = 260;
+        naturalHeight = 70;
+        decode = vi.fn(async () => {});
+        set src(value) {
+          this.source = value;
+        }
+      },
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
+      'data:image/png;base64,cmFzdGVy',
+    );
+    const html = await buildStandaloneHtml({
+      text: '```mermaid\ngraph LR\nA[Alpha] --> B[Beta]\n```',
+      theme: 'dark',
+      mermaidHtmlLabels: false,
+    });
+    await documentExport.downloadPdf({ html, title: 'Guide' });
+
+    const content = JSON.stringify(pdfMake.createPdf.mock.calls.at(-1)[0]);
+    expect(initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ htmlLabels: false }),
+    );
+    expect(content).toContain('data:image/png;base64,cmFzdGVy');
+    expect(content).not.toContain('<svg');
+    expect(content).not.toContain('foreignObject');
+    initialize.mockRestore();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('degrades remote images to their alt text', async () => {

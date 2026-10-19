@@ -58,6 +58,7 @@ body {
 }
 
 .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
   font-variation-settings:
     'FILL' 0,
     'wght' 400,
@@ -1376,11 +1377,14 @@ body {
 }
 .table-dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--pbor);
+}
+.table-dialog-header > div:first-child {
+  min-width: 0;
 }
 .table-dialog-header h2 {
   margin: 0;
@@ -1392,16 +1396,22 @@ body {
   font-size: 12px;
 }
 .table-dialog-count {
-  align-self: center;
-  margin-left: auto;
   color: var(--pmut);
   font-size: 12px;
   white-space: nowrap;
 }
+.table-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .table-dialog-search {
-  flex: 1 1 200px;
-  min-width: 180px;
-  max-width: 320px;
+  flex: 1 1 240px;
+  min-width: 120px;
+  max-width: 280px;
 }
 .table-dialog-search input {
   width: 100%;
@@ -1681,10 +1691,8 @@ body {
     flex-wrap: wrap;
     padding: 12px;
   }
-  .table-dialog-count {
-    order: 3;
+  .table-dialog-actions {
     width: 100%;
-    margin-left: 0;
   }
   .table-dialog-body.md-body {
     padding: 12px;
