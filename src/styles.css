@@ -1398,6 +1398,20 @@ body {
   font-size: 12px;
   white-space: nowrap;
 }
+.table-dialog-search {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 320px;
+}
+.table-dialog-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--pfg);
+  outline: none;
+}
 .table-dialog-reset {
   display: inline-flex;
   align-items: center;

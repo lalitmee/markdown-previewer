@@ -31,6 +31,7 @@ export default function TableModal({
   const closingRef = useRef(false);
   const [menu, setMenu] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const menuOpen = menu !== null;
   const currentView = tableState[tableIndex] || {};
   const hasCustomizations = ['filters', 'hidden', 'widths'].some(
@@ -66,11 +67,20 @@ export default function TableModal({
     decorateTables(bodyRef.current, { tableIndex });
     applyTableState(bodyRef.current, tableState);
     const rows = bodyRef.current?.querySelectorAll('tbody tr') || [];
-    const shown = Array.from(rows).filter(
-      (row) => !row.classList.contains('mp-row-filtered'),
-    ).length;
+    const query = searchQuery.toLowerCase();
+    let shown = 0;
+    rows.forEach((row) => {
+      const matches = !query || row.textContent.toLowerCase().includes(query);
+      if (!matches) row.classList.add('mp-row-filtered');
+      if (!row.classList.contains('mp-row-filtered')) shown++;
+    });
+    const hiddenCount = Object.keys(currentView.hidden || {}).length;
     if (countRef.current)
-      countRef.current.textContent = `${shown} of ${rows.length} rows`;
+      countRef.current.textContent = `${shown} of ${rows.length} rows${
+        hiddenCount
+          ? ` · ${hiddenCount} column${hiddenCount === 1 ? '' : 's'} hidden`
+          : ''
+      }`;
     if (!heightLockedRef.current && dialogRef.current) {
       const dialog = dialogRef.current;
       const availableHeight =
@@ -80,7 +90,7 @@ export default function TableModal({
       dialog.classList.add('table-dialog-locked');
       heightLockedRef.current = true;
     }
-  }, [tableHtml, tableIndex, tableState]);
+  }, [tableHtml, tableIndex, tableState, searchQuery]);
 
   useEffect(() => {
     if (menuOpen) searchRef.current?.focus();
@@ -305,6 +315,18 @@ export default function TableModal({
           <div>
             <h2 id="table-dialog-title">Table {tableIndex + 1}</h2>
             <p>Filter rows, resize columns, or hide columns.</p>
+          </div>
+          <div className="mp-filter-search table-dialog-search">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              search
+            </span>
+            <input
+              type="search"
+              placeholder="Search table"
+              aria-label="Search all table cells"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
           </div>
           <span
             className="table-dialog-count"
