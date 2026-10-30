@@ -61,7 +61,7 @@ A browser-based Markdown reader and editor. Open a Markdown file or choose a fol
 
 ## Requirements
 
-- Node.js and npm.
+- Node.js and pnpm 10.24.0.
 - A browser that supports the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API), such as a recent desktop version of Chrome or Edge.
 - A secure context for local file access. `localhost` is suitable for development; deployed instances should use HTTPS.
 
@@ -74,8 +74,8 @@ Clone the repository, then install dependencies and start the development server
 ```sh
 git clone https://github.com/lalitmee/markdown-previewer.git
 cd markdown-previewer
-npm ci
-npm run dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 Open the local URL printed by Vite in a supported browser.
@@ -83,9 +83,9 @@ Open the local URL printed by Vite in a supported browser.
 To test and build:
 
 ```sh
-npm test        # run the test suite
-npm run build   # create a production build in dist/
-npm run preview # serve the production build locally
+pnpm test    # run the test suite
+pnpm build   # create a production build in dist/
+pnpm preview # serve the production build locally
 ```
 
 <details>
