@@ -24,7 +24,9 @@ export default function PasteEditor({ draft, onDraftChange, onPreview }) {
             spellCheck={false}
           />
           <div className="paste-footer">
-            <span>Available until you reload or close this tab.</span>
+            <span>
+              Saved to your recent history in this browser when previewed.
+            </span>
             <button className="btn primary" disabled={!draft.trim()}>
               <span className="material-symbols-outlined btn-ico">
                 visibility

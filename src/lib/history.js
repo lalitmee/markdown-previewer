@@ -71,21 +71,33 @@ export function createHistory() {
 
     async add(handle, location, limit = HISTORY_LIMIT) {
       if (!handle || !handle.name) return;
+      const isPaste =
+        handle.kind === 'paste' || typeof handle.text === 'string';
+      if (isPaste && (!handle.text || !handle.text.trim())) return;
       await run('readwrite', (store) => {
         const req = store.getAll();
         req.onsuccess = () => {
           const rows = (req.result || []).sort((a, b) => b.rank - a.rank);
           const rest = rows.filter((e) => e.name !== handle.name);
-          rest.unshift({
-            name: handle.name,
-            kind: handle.kind || 'file',
-            handle,
-            rank: nextRank(),
-            location,
-          });
+          const entry = isPaste
+            ? {
+                name: handle.name,
+                kind: 'paste',
+                text: handle.text,
+                rank: nextRank(),
+                location,
+              }
+            : {
+                name: handle.name,
+                kind: handle.kind || 'file',
+                handle,
+                rank: nextRank(),
+                location,
+              };
+          rest.unshift(entry);
           const keep = Math.min(normalizeLimit(limit), currentLimit);
           store.clear();
-          for (const entry of rest.slice(0, keep)) store.put(entry);
+          for (const item of rest.slice(0, keep)) store.put(item);
         };
       });
     },

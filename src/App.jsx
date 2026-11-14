@@ -11,7 +11,7 @@ import ProcessingStatus from './components/ProcessingStatus';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
-import { isMarkdownName } from './lib/search';
+import { getPasteTitle, isMarkdownName } from './lib/search';
 import { buildStandaloneHtml, downloadPdf } from './lib/documentExport';
 import {
   pickSingleFile,
@@ -492,6 +492,12 @@ export default function App() {
 
   function onPreviewPastedMarkdown() {
     if (!pastedDraft.trim()) return;
+    const historyName = getPasteTitle(pastedDraft);
+    persistHistory({
+      name: historyName,
+      kind: 'paste',
+      text: pastedDraft,
+    });
     setFolder(null);
     setFiles([]);
     cacheRef.current = new Map();
@@ -500,6 +506,7 @@ export default function App() {
       path: '',
       handle: null,
       source: 'paste',
+      historyName,
     });
     setActiveRevision((revision) => revision + 1);
     setTableState({});
@@ -578,6 +585,30 @@ export default function App() {
   async function onOpenHistory(h) {
     const id = startOperation(`Opening recent item: ${h.name}`);
     try {
+      if (h.kind === 'paste') {
+        const markdown = h.text || '';
+        setFolder(null);
+        setFiles([]);
+        cacheRef.current = new Map();
+        setPastedDraft(markdown);
+        setActive({
+          name: 'Pasted Markdown',
+          path: '',
+          handle: null,
+          source: 'paste',
+          historyName: h.name,
+        });
+        setActiveRevision((revision) => revision + 1);
+        setTableState({});
+        setText(markdown);
+        setMode('preview');
+        persistHistory(
+          { name: h.name, kind: 'paste', text: markdown },
+          h.location,
+        );
+        transitionView('preview');
+        return;
+      }
       const granted = await requestPermission(h.handle);
       if (!isCurrentOperation(id)) return;
       if (!granted) {
@@ -621,6 +652,19 @@ export default function App() {
       setNotice('Saved ✓');
     } catch (err) {
       setNotice('Save failed: ' + (err && err.message));
+    }
+  }
+
+  function onPreviewTextChange(nextText) {
+    setText(nextText);
+    if (active?.source === 'paste' && nextText.trim()) {
+      const historyName = active.historyName || getPasteTitle(nextText);
+      setPastedDraft(nextText);
+      persistHistory({
+        name: historyName,
+        kind: 'paste',
+        text: nextText,
+      });
     }
   }
 
@@ -822,7 +866,7 @@ export default function App() {
             text={text}
             onNotice={setNotice}
             onProcessingChange={onPreviewProcessingChange}
-            setText={setText}
+            setText={onPreviewTextChange}
             tableState={tableState}
             setTableState={setTableState}
             theme={theme}

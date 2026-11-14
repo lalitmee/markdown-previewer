@@ -8,7 +8,11 @@ export default function HistorySection({ history, onOpen, onRemove }) {
           <div key={h.name + '-' + h.kind} className="history-item">
             <button className="history-open" onClick={() => onOpen(h)}>
               <span className="material-symbols-outlined h-ico">
-                {h.kind === 'directory' ? 'folder' : 'description'}
+                {h.kind === 'directory'
+                  ? 'folder'
+                  : h.kind === 'paste'
+                    ? 'content_paste'
+                    : 'description'}
               </span>
               <span className="h-name">{h.name}</span>
               {h.location ? (

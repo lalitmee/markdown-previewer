@@ -14,6 +14,22 @@ export function isMarkdownName(name) {
   return MD_EXT.some((e) => n.endsWith(e));
 }
 
+export function getPasteTitle(text) {
+  const firstLine = String(text || '')
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^(?:#{1,6}\s+|>\s+|[-*+]\s+|\d+\.\s+)+/, '')
+        .trim(),
+    )
+    .find(Boolean);
+  if (!firstLine) return 'Pasted Markdown';
+  return firstLine.length > 60
+    ? firstLine.slice(0, 57).trimEnd() + '…'
+    : firstLine;
+}
+
 export function isImageName(name) {
   const n = String(name).toLowerCase();
   return IMG_EXT.some((e) => n.endsWith(e));

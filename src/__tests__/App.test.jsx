@@ -153,7 +153,15 @@ describe('pasted Markdown', () => {
       'Pasted heading',
     );
     expect(host.querySelector('[aria-label="Save"]')).toBeNull();
-    expect(historyMock.add).not.toHaveBeenCalled();
+    expect(historyMock.add).toHaveBeenCalledWith(
+      {
+        name: 'Pasted heading',
+        kind: 'paste',
+        text: '# Pasted heading',
+      },
+      undefined,
+      20,
+    );
 
     await act(async () => host.querySelector('[aria-label="Back"]').click());
     expect(host.querySelector('#pasted-markdown').value).toBe(
@@ -171,6 +179,78 @@ describe('pasted Markdown', () => {
     await act(async () => host.querySelector('.dz-actions button').click());
     expect(host.querySelector('#pasted-markdown').value).toBe(
       '# Pasted heading',
+    );
+  });
+
+  it('reopens a pasted Markdown entry from recent history without permission prompts', async () => {
+    historyMock.items = [
+      {
+        name: 'Saved note',
+        kind: 'paste',
+        text: '# Saved note\n\nRestored content',
+      },
+    ];
+
+    await act(async () => root.render(createElement(App)));
+    await act(async () =>
+      host.querySelector('[aria-label="Recent files and folders"]').click(),
+    );
+    await act(async () => host.querySelector('.history-open').click());
+
+    expect(fsMock.requestPermission).not.toHaveBeenCalled();
+    expect(fsMock.readFileText).not.toHaveBeenCalled();
+    expect(host.querySelector('.file-title').textContent).toBe(
+      'Pasted Markdown',
+    );
+    expect(host.querySelector('.md-body h1').textContent).toBe('Saved note');
+    expect(historyMock.add).toHaveBeenCalledWith(
+      {
+        name: 'Saved note',
+        kind: 'paste',
+        text: '# Saved note\n\nRestored content',
+      },
+      undefined,
+      20,
+    );
+
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(host.querySelector('#pasted-markdown').value).toBe(
+      '# Saved note\n\nRestored content',
+    );
+  });
+
+  it('updates the pasted Markdown history record when edited in preview', async () => {
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('.dz-actions button').click());
+
+    const input = host.querySelector('#pasted-markdown');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(input, '# Draft title');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => host.querySelector('.paste-footer button').click());
+    await act(async () => host.querySelector('[aria-label="Edit"]').click());
+
+    const editor = host.querySelector('.cm-content');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      ).set.call(editor, '# Draft title\n\nEdited inline');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(historyMock.add).toHaveBeenLastCalledWith(
+      {
+        name: 'Draft title',
+        kind: 'paste',
+        text: '# Draft title\n\nEdited inline',
+      },
+      undefined,
+      20,
     );
   });
 });

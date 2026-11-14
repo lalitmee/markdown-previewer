@@ -101,4 +101,34 @@ describe('history store', () => {
     const list = await fresh.list();
     expect(list[0].name).toBe('persisted');
   });
+
+  it('persists pasted markdown entries, deduplicates by name, and ignores blank text', async () => {
+    await store.add({
+      name: 'Empty paste',
+      kind: 'paste',
+      text: '   \n\t  ',
+    });
+    expect(await store.list()).toEqual([]);
+
+    await store.add({
+      name: 'Pasted heading',
+      kind: 'paste',
+      text: '# Pasted heading\n\nBody',
+    });
+    await store.add(fakeHandle('docs'));
+    await store.add({
+      name: 'Pasted heading',
+      kind: 'paste',
+      text: '# Pasted heading\n\nUpdated body',
+    });
+
+    const fresh = createHistory();
+    const list = await fresh.list();
+    expect(list).toHaveLength(2);
+    expect(list[0]).toMatchObject({
+      name: 'Pasted heading',
+      kind: 'paste',
+      text: '# Pasted heading\n\nUpdated body',
+    });
+  });
 });
