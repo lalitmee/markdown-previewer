@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
-export default function ProcessingStatus({ activity }) {
+export default function ProcessingStatus({
+  activity,
+  container,
+  inline = false,
+}) {
   const [visibleFor, setVisibleFor] = useState(null);
   const activityId = activity?.id;
 
@@ -10,13 +15,25 @@ export default function ProcessingStatus({ activity }) {
     return () => clearTimeout(timer);
   }, [activityId]);
 
-  if (!activity || (!activity.immediate && visibleFor !== activity.id))
+  if (
+    (inline && !container) ||
+    !activity ||
+    (!activity.immediate && visibleFor !== activity.id)
+  )
     return null;
 
-  return (
-    <div className="processing-status" role="status" aria-live="polite">
+  const status = (
+    <div
+      className={`processing-status${container ? ' processing-status-inline' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
       <span className="processing-indicator" aria-hidden="true" />
-      <span>{activity.message}</span>
+      <span className="processing-message" title={activity.message}>
+        {inline && activity.message === 'Loading Markdown'
+          ? 'Indexing'
+          : activity.message}
+      </span>
       {activity.current != null && activity.total != null && (
         <span className="processing-progress">
           {activity.current}/{activity.total}
@@ -24,4 +41,5 @@ export default function ProcessingStatus({ activity }) {
       )}
     </div>
   );
+  return container ? createPortal(status, container) : status;
 }

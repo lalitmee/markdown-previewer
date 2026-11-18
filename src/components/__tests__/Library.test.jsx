@@ -1,4 +1,5 @@
-import { createElement } from 'react';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import Library from '../Library';
@@ -22,6 +23,7 @@ function renderLibrary({
   scope = 'name',
   folderName = '',
   cache = new Map(),
+  sortOrder,
 } = {}) {
   const markup = renderToStaticMarkup(
     createElement(Library, {
@@ -32,6 +34,7 @@ function renderLibrary({
       query,
       scope,
       viewMode,
+      sortOrder,
       onOpen: () => {},
     }),
   );
@@ -61,11 +64,15 @@ describe('Library duplicate filename locations', () => {
         'api/README.md',
         'blue/docs/README.md',
         'red/docs/README.md',
-        'CHANGELOG.md',
+        'packages/changelog/CHANGELOG.md',
       ]);
       expect(buttons[0].getAttribute('title')).toBe('packages/app/README.md');
-      expect(buttons[4].querySelector('.folder-path')).toBeNull();
-      expect(buttons[4].getAttribute('title')).toBeNull();
+      expect(buttons[4].querySelector('.folder-path').textContent).toBe(
+        'packages/changelog/',
+      );
+      expect(buttons[4].getAttribute('title')).toBe(
+        'packages/changelog/CHANGELOG.md',
+      );
     },
   );
 
@@ -144,6 +151,144 @@ describe('Library folder crumb', () => {
   });
 });
 
+describe('Library layout and metadata', () => {
+  it('changes layout directly, persists choices, and keeps the panel open', async () => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    localStorage.removeItem('mdpv-library-layout');
+    try {
+      await act(async () =>
+        root.render(
+          createElement(Library, {
+            files,
+            cache: new Map(),
+            viewMode: 'grid',
+            onOpen: () => {},
+          }),
+        ),
+      );
+      const panel = host.querySelector('.layout-menu');
+      await act(async () => panel.querySelector('summary').click());
+      expect(panel.open).toBe(true);
+      expect(panel.querySelector('.custom-select')).toBeNull();
+      expect(panel.querySelectorAll('fieldset')).toHaveLength(2);
+      expect(panel.querySelectorAll('input[type="radio"]')).toHaveLength(8);
+      for (const value of ['3', 'compact']) {
+        await act(async () =>
+          panel.querySelector(`input[value="${value}"]`).click(),
+        );
+        expect(panel.open).toBe(true);
+        expect(panel.querySelector(`input[value="${value}"]`).checked).toBe(
+          true,
+        );
+      }
+      expect(host.querySelector('.file-grid').dataset.columns).toBe('3');
+      expect(
+        host.querySelector('.library').classList.contains('density-compact'),
+      ).toBe(true);
+      expect(JSON.parse(localStorage.getItem('mdpv-library-layout'))).toEqual({
+        columns: '3',
+        density: 'compact',
+        excerpts: true,
+      });
+      await act(async () =>
+        panel.querySelector('input[type="checkbox"]').click(),
+      );
+      expect(panel.open).toBe(true);
+      expect(
+        JSON.parse(localStorage.getItem('mdpv-library-layout')).excerpts,
+      ).toBe(false);
+      await act(async () =>
+        panel.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Escape',
+            bubbles: true,
+          }),
+        ),
+      );
+      expect(panel.open).toBe(false);
+      expect(document.activeElement).toBe(panel.querySelector('summary'));
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      localStorage.removeItem('mdpv-library-layout');
+      delete globalThis.IS_REACT_ACT_ENVIRONMENT;
+    }
+  });
+  it('renders folder-local controls, excerpts, and file metadata', () => {
+    const container = renderLibrary({
+      viewMode: 'grid',
+      entries: [
+        {
+          ...file('guide.md', 'docs/guide.md'),
+          size: 2048,
+          lastModified: 1700000000000,
+        },
+      ],
+      cache: new Map([
+        ['docs/guide.md', '# Getting started\n\nA useful introduction.'],
+      ]),
+    });
+    expect(
+      container.querySelector('.library-toolbar [aria-label="Sort files"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('.card .snippet').textContent).toContain(
+      'A useful introduction.',
+    );
+    expect(container.querySelector('.file-meta').textContent).toContain(
+      '2.0 KB',
+    );
+    expect(container.querySelector('time').dateTime).toBe(
+      new Date(1700000000000).toISOString(),
+    );
+  });
+
+  it('restores compact layout preferences and hides excerpts', () => {
+    localStorage.setItem(
+      'mdpv-library-layout',
+      JSON.stringify({ columns: '3', density: 'compact', excerpts: false }),
+    );
+    try {
+      const container = renderLibrary({
+        viewMode: 'grid',
+        cache: new Map([['packages/app/README.md', 'Example text']]),
+      });
+      expect(
+        container
+          .querySelector('.library')
+          .classList.contains('density-compact'),
+      ).toBe(true);
+      expect(container.querySelector('.file-grid').dataset.columns).toBe('3');
+      expect(container.querySelector('.snippet')).toBeNull();
+    } finally {
+      localStorage.removeItem('mdpv-library-layout');
+    }
+  });
+
+  it.each(['newest', 'oldest'])(
+    'sorts by %s and puts unknown dates last',
+    (sortOrder) => {
+      const entries = [
+        { ...file('a.md', 'a.md'), lastModified: 100 },
+        { ...file('b.md', 'b.md'), lastModified: 200 },
+        file('c.md', 'c.md'),
+      ];
+      const container = renderLibrary({ entries, sortOrder });
+      expect(
+        [...container.querySelectorAll('.fname')].map(
+          (node) => node.textContent,
+        ),
+      ).toEqual(
+        sortOrder === 'newest'
+          ? ['b.md', 'a.md', 'c.md']
+          : ['a.md', 'b.md', 'c.md'],
+      );
+    },
+  );
+});
+
 describe('Library search scope', () => {
   const entries = [
     file('notes.md', 'notes.md'),
@@ -158,7 +303,7 @@ describe('Library search scope', () => {
     const container = renderLibrary({ entries, cache, query: 'readme' });
     const buttons = Array.from(container.querySelectorAll('.list-row'));
 
-    expect(buttons.map(displayedLabel)).toEqual(['readme.md']);
+    expect(buttons.map(displayedLabel)).toEqual(['docs/readme.md']);
     expect(buttons[0].querySelector('.snippet')).toBeNull();
     expect(buttons[0].querySelector('.fname mark').textContent).toBe('readme');
   });
@@ -172,7 +317,7 @@ describe('Library search scope', () => {
     });
     const buttons = Array.from(container.querySelectorAll('.list-row'));
 
-    expect(buttons.map(displayedLabel)).toEqual(['notes.md']);
+    expect(buttons.map(displayedLabel)).toEqual(['./notes.md']);
     expect(buttons[0].querySelector('.snippet mark').textContent).toBe(
       'needle',
     );

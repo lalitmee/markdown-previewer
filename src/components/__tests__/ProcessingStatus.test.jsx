@@ -22,6 +22,75 @@ afterEach(async () => {
 });
 
 describe('ProcessingStatus', () => {
+  it('never falls back to a header pill while waiting for the inline slot', async () => {
+    const activity = {
+      id: 1,
+      message: 'Loading Markdown',
+      current: 4,
+      total: 9,
+      immediate: true,
+    };
+    await act(async () =>
+      root.render(createElement(ProcessingStatus, { activity, inline: true })),
+    );
+    await act(async () => vi.advanceTimersByTime(300));
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    const container = document.createElement('div');
+    document.body.append(container);
+    try {
+      await act(async () =>
+        root.render(
+          createElement(ProcessingStatus, {
+            activity,
+            inline: true,
+            container,
+          }),
+        ),
+      );
+      expect(container.querySelector('.processing-message').textContent).toBe(
+        'Indexing',
+      );
+      expect(container.querySelector('.processing-progress').textContent).toBe(
+        '4/9',
+      );
+      expect(host.querySelector('[role="status"]')).toBeNull();
+    } finally {
+      container.remove();
+    }
+  });
+  it('moves an already visible status into the library without restarting its delay', async () => {
+    const activity = {
+      id: 1,
+      message: 'Loading Markdown',
+      current: 2,
+      total: 8,
+    };
+    const container = document.createElement('div');
+    document.body.append(container);
+    try {
+      await act(async () =>
+        root.render(createElement(ProcessingStatus, { activity })),
+      );
+      await act(async () => vi.advanceTimersByTime(300));
+      expect(host.querySelector('[role="status"]')).not.toBeNull();
+      await act(async () =>
+        root.render(createElement(ProcessingStatus, { activity, container })),
+      );
+      expect(host.querySelector('[role="status"]')).toBeNull();
+      expect(
+        container.querySelector('.processing-status-inline').textContent,
+      ).toContain('2/8');
+      expect(
+        container.querySelector('[role="status"]').getAttribute('aria-live'),
+      ).toBe('polite');
+      await act(async () =>
+        root.render(createElement(ProcessingStatus, { container })),
+      );
+      expect(container.querySelector('[role="status"]')).toBeNull();
+    } finally {
+      container.remove();
+    }
+  });
   it('waits 300ms before announcing an active operation', async () => {
     await act(async () => {
       root.render(

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import TopBar from './components/TopBar';
 import Picker from './components/Picker';
@@ -8,6 +14,7 @@ import Preview from './components/Preview';
 import HistorySection from './components/HistorySection';
 import SettingsPage from './components/SettingsPage';
 import ProcessingStatus from './components/ProcessingStatus';
+import { resolveDocumentLink } from './lib/documentLinks';
 import { createHistory } from './lib/history';
 import { DEFAULT_EXCLUDES, parseRules } from './lib/excludes';
 import { contrastForeground } from './lib/accent';
@@ -96,6 +103,24 @@ function transitionPage(update, direction) {
 }
 
 export default function App() {
+  const headerRef = useRef(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    const updateHeight = () => {
+      header.parentElement.style.setProperty(
+        '--app-header-height',
+        `${header.getBoundingClientRect().height}px`,
+      );
+    };
+    updateHeight();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+    }
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const [theme, setTheme] = useState(() => loadStored(THEME_KEY, 'system'));
   const [accent, setAccent] = useState(
     () => loadStored(ACCENT_KEY, '') || null,
@@ -105,6 +130,33 @@ export default function App() {
   ); // picker | paste | library | preview | settings
   const [folder, setFolder] = useState(null); // { name, handle }
   const [files, setFiles] = useState([]);
+  const [sortOrder, setSortOrder] = useState(() => {
+    const saved = loadStored('mdpv-sort', 'name-asc');
+    return ['name-asc', 'name-desc', 'newest', 'oldest'].includes(saved)
+      ? saved
+      : 'name-asc';
+  });
+  const documentBackRef = useRef([]);
+  const folderScrollRef = useRef(0);
+  const [previewScroll, setPreviewScroll] = useState({ window: 0, pane: 0 });
+  useLayoutEffect(() => {
+    if (view === 'library')
+      window.scrollTo({
+        top: folderScrollRef.current,
+        left: 0,
+        behavior: 'instant',
+      });
+  }, [view]);
+
+  function captureDocumentScroll() {
+    return {
+      window: window.scrollY,
+      pane:
+        document.querySelector('.preview-page .split-right')?.scrollTop || 0,
+    };
+  }
+  const savedTextRef = useRef('');
+  const [targetHeading, setTargetHeading] = useState('');
   const [historyList, setHistoryList] = useState([]);
   const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
   const historyLimitRef = useRef(historyLimit);
@@ -115,6 +167,7 @@ export default function App() {
   const [pastedDraft, setPastedDraft] = useState('');
   const [notice, setNotice] = useState('');
   const [activity, setActivity] = useState(null);
+  const [libraryStatusHost, setLibraryStatusHost] = useState(null);
   const [indexed, setIndexed] = useState(0);
   const [mode, setMode] = useState('preview'); // preview | edit
   const [editorFont, setEditorFont] = useState(() =>
@@ -335,6 +388,8 @@ export default function App() {
 
     cacheRef.current = new Map();
     const cache = cacheRef.current;
+    documentBackRef.current = [];
+    folderScrollRef.current = 0;
     setFolder({ name, handle });
     setFiles(md);
     setActive(null);
@@ -366,7 +421,7 @@ export default function App() {
     }
   }
 
-  async function openEntry(entry) {
+  async function openEntry(entry, scroll = { window: 0, pane: 0 }) {
     cancelOperation();
     let t = cacheRef.current.get(entry.path);
     if (!cacheRef.current.has(entry.path)) {
@@ -389,11 +444,45 @@ export default function App() {
     } else {
       persistHistory(entry.handle);
     }
+    if (viewRef.current === 'library') folderScrollRef.current = window.scrollY;
+    setPreviewScroll(scroll);
+    savedTextRef.current = t;
+    setTargetHeading('');
     setActive(entry);
     setActiveRevision((revision) => revision + 1);
     setTableState({});
     setText(t);
     setView('preview');
+    return true;
+  }
+
+  function confirmLeaveDocument() {
+    return (
+      text === savedTextRef.current ||
+      window.confirm('Discard unsaved changes and leave this document?')
+    );
+  }
+
+  async function followDocumentLink(href) {
+    const target = resolveDocumentLink(href, active?.path || '');
+    if (!target) return;
+    if (target.error) return setNotice(target.error);
+    if (!folder)
+      return setNotice(
+        'Open the containing folder to follow local document links.',
+      );
+    const entry = files.find((file) => file.path === target.path);
+    if (!entry)
+      return setNotice(
+        `Document not found in the opened folder: ${target.path}`,
+      );
+    if (!confirmLeaveDocument()) return;
+    const previous = { entry: active, scroll: captureDocumentScroll() };
+    const opened = await openEntry(entry);
+    if (opened) {
+      documentBackRef.current.push(previous);
+      setTargetHeading(target.hash);
+    }
   }
 
   async function onPickFolder() {
@@ -649,6 +738,15 @@ export default function App() {
       return;
     try {
       await saveFileText(active.handle, markdown);
+      savedTextRef.current = markdown;
+      cacheRef.current.set(active.path, markdown);
+      setFiles((current) =>
+        current.map((file) =>
+          file.path === active.path
+            ? { ...file, lastModified: Date.now() }
+            : file,
+        ),
+      );
       setNotice('Saved ✓');
     } catch (err) {
       setNotice('Save failed: ' + (err && err.message));
@@ -669,6 +767,12 @@ export default function App() {
   }
 
   function onBack() {
+    if (folder && !confirmLeaveDocument()) return;
+    const previous = documentBackRef.current.pop();
+    if (folder && previous) {
+      void openEntry(previous.entry, previous.scroll);
+      return;
+    }
     cancelOperation();
     const wasPasted = active?.source === 'paste';
     if (wasPasted) setPastedDraft(text);
@@ -781,7 +885,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="app-sticky-header">
+      <div className="app-sticky-header" ref={headerRef}>
         <TopBar
           doc={doc}
           onHome={goHome}
@@ -794,18 +898,23 @@ export default function App() {
               ? {
                   query,
                   onQuery: setQuery,
-                  viewMode,
-                  onViewMode: pickViewMode,
                   scope,
                   onScope: pickScope,
                 }
               : null
           }
         />
-        <ProcessingStatus activity={activity} />
+        <ProcessingStatus
+          activity={activity}
+          inline={view === 'library'}
+          container={view === 'library' ? libraryStatusHost : null}
+        />
       </div>
 
-      <div className="app-content" aria-busy={Boolean(activity)}>
+      <div
+        className="app-content"
+        aria-busy={view !== 'library' && Boolean(activity)}
+      >
         {view === 'picker' && (
           <Picker
             onPickFile={onPickSingleFile}
@@ -837,10 +946,25 @@ export default function App() {
             folderName={folder ? folder.name : ''}
             cache={cacheRef.current}
             indexed={indexed}
+            activity={activity}
+            onStatusMount={setLibraryStatusHost}
             query={query}
             scope={scope}
             viewMode={viewMode}
-            onOpen={openEntry}
+            sortOrder={sortOrder}
+            onViewMode={pickViewMode}
+            onSortOrder={(value) => {
+              setSortOrder(value);
+              try {
+                localStorage.setItem('mdpv-sort', value);
+              } catch (_) {
+                /* optional persistence */
+              }
+            }}
+            onOpen={(entry) => {
+              documentBackRef.current = [];
+              void openEntry(entry);
+            }}
           />
         )}
 
@@ -863,6 +987,9 @@ export default function App() {
           <Preview
             key={activeRevision}
             entry={active}
+            targetHeading={targetHeading}
+            initialScroll={previewScroll}
+            onDocumentLink={followDocumentLink}
             text={text}
             onNotice={setNotice}
             onProcessingChange={onPreviewProcessingChange}

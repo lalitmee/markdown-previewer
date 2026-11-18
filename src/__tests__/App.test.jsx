@@ -414,6 +414,105 @@ describe('drag and drop', () => {
   });
 });
 
+describe('folder and preview scroll positions', () => {
+  it('restores document Back positions only after asynchronous Markdown rendering', async () => {
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    fsMock.pickFolder.mockResolvedValue({ name: 'docs' });
+    fsMock.listMdFiles.mockResolvedValue([
+      { name: 'one.md', path: 'one.md', handle: {} },
+      { name: 'two.md', path: 'two.md', handle: {} },
+    ]);
+    fsMock.readFileText
+      .mockResolvedValueOnce('[Next](two.md)')
+      .mockResolvedValueOnce('# Two');
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+    await act(async () => host.querySelector('.card').click());
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 920,
+    });
+    await act(async () => host.querySelector('.md-body a').click());
+    expect(scroll).toHaveBeenLastCalledWith({
+      top: 0,
+      left: 0,
+      behavior: 'instant',
+    });
+    const pending = deferred();
+    const render = vi
+      .spyOn(markdown, 'renderMarkdown')
+      .mockReturnValueOnce(pending.promise);
+    scroll.mockClear();
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(scroll).not.toHaveBeenCalled();
+    await act(async () => pending.resolve('<h1>One</h1>'));
+    expect(scroll).toHaveBeenLastCalledWith({
+      top: 920,
+      left: 0,
+      behavior: 'instant',
+    });
+    render.mockRestore();
+    scroll.mockRestore();
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+  });
+
+  it('lets cross-document heading links take precedence over scroll restoration', async () => {
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    const headingScroll = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = headingScroll;
+    fsMock.pickFolder.mockResolvedValue({ name: 'docs' });
+    fsMock.listMdFiles.mockResolvedValue([
+      { name: 'one.md', path: 'one.md', handle: {} },
+      { name: 'two.md', path: 'two.md', handle: {} },
+    ]);
+    fsMock.readFileText
+      .mockResolvedValueOnce('[Next](two.md#section)')
+      .mockResolvedValueOnce('## Section');
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+    await act(async () => host.querySelector('.card').click());
+    scroll.mockClear();
+    await act(async () => host.querySelector('.md-body a').click());
+    expect(headingScroll).toHaveBeenCalled();
+    expect(scroll).not.toHaveBeenCalled();
+    HTMLElement.prototype.scrollIntoView = original;
+    scroll.mockRestore();
+  });
+  it('starts documents at the top and restores the folder after preview scrolling', async () => {
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    fsMock.pickFolder.mockResolvedValue({ name: 'docs' });
+    fsMock.listMdFiles.mockResolvedValue([
+      { name: 'one.md', path: 'one.md', handle: {} },
+    ]);
+    await act(async () => root.render(createElement(App)));
+    await act(async () => host.querySelector('button.btn.secondary').click());
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 640,
+    });
+    scroll.mockClear();
+    await act(async () => host.querySelector('.card').click());
+    expect(scroll).toHaveBeenLastCalledWith({
+      top: 0,
+      left: 0,
+      behavior: 'instant',
+    });
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 1800,
+    });
+    await act(async () => host.querySelector('[aria-label="Back"]').click());
+    expect(scroll).toHaveBeenLastCalledWith({
+      top: 640,
+      left: 0,
+      behavior: 'instant',
+    });
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    scroll.mockRestore();
+  });
+});
+
 describe('file and folder processing feedback', () => {
   beforeEach(() => vi.useFakeTimers());
 
@@ -473,16 +572,26 @@ describe('file and folder processing feedback', () => {
     await act(async () => scan.resolve(files));
     expect(host.querySelector('.library')).not.toBeNull();
     expect(host.querySelector('.result-count').textContent).toContain(
-      'Indexing… 0/2',
+      '2 files',
     );
     expect(host.querySelector('[role="status"]').textContent).toContain(
-      'Loading Markdown',
+      'Indexing',
     );
     expect(host.querySelector('[role="status"]').textContent).toContain('0/2');
+    expect(host.querySelectorAll('[role="status"]')).toHaveLength(1);
+    expect(
+      host.querySelector('.library-toolbar [role="status"]'),
+    ).not.toBeNull();
+    expect(host.querySelector('.app-sticky-header [role="status"]')).toBeNull();
+    expect(
+      host
+        .querySelector('[aria-busy="true"]')
+        .contains(host.querySelector('[role="status"]')),
+    ).toBe(false);
 
     await act(async () => firstRead.resolve('# One'));
     expect(host.querySelector('.result-count').textContent).toContain(
-      'Indexing… 1/2',
+      '2 files',
     );
     expect(host.querySelector('[role="status"]').textContent).toContain('1/2');
 

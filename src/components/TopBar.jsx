@@ -178,26 +178,6 @@ export default function TopBar({
             </div>
           </details>
         )}
-        {library && (
-          <div className="view-toggle" role="group" aria-label="File list view">
-            <button
-              className={library.viewMode === 'grid' ? 'active' : ''}
-              onClick={() => library.onViewMode('grid')}
-              title="Grid view"
-              aria-label="Grid view"
-            >
-              <span className="material-symbols-outlined">grid_view</span>
-            </button>
-            <button
-              className={library.viewMode === 'list' ? 'active' : ''}
-              onClick={() => library.onViewMode('list')}
-              title="List view"
-              aria-label="List view"
-            >
-              <span className="material-symbols-outlined">view_list</span>
-            </button>
-          </div>
-        )}
         {doc && doc.mode === 'edit' && (
           <label className="font-picker" title="Editor font">
             <span className="material-symbols-outlined">text_fields</span>

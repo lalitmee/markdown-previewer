@@ -1,6 +1,9 @@
 import { vi } from 'vitest';
 import 'fake-indexeddb/auto';
 
+// jsdom has no layout engine; assert navigation scroll requests via this mock.
+window.scrollTo = vi.fn();
+
 vi.mock('mermaid', () => ({
   default: {
     initialize: vi.fn(),

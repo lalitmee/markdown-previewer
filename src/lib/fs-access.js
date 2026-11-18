@@ -66,8 +66,24 @@ export async function listMdFiles(dirHandle, rules = []) {
       const path = prefix ? prefix + '/' + entry.name : entry.name;
       if (shouldExclude(path, rules)) continue;
       if (entry.kind === 'file') {
-        if (isMarkdownName(entry.name))
-          out.push({ name: entry.name, path, handle: entry });
+        if (isMarkdownName(entry.name)) {
+          let lastModified = null;
+          let size = null;
+          try {
+            const file = await entry.getFile();
+            lastModified = file.lastModified;
+            size = file.size;
+          } catch (_) {
+            /* Keep unreadable entries visible, with unknown modification time. */
+          }
+          out.push({
+            name: entry.name,
+            path,
+            handle: entry,
+            lastModified,
+            size,
+          });
+        }
       } else if (entry.kind === 'directory') {
         await walk(entry, path);
       }

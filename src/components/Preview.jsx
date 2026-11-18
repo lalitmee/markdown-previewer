@@ -1,4 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
@@ -21,8 +28,12 @@ export default function Preview({
   widthVar,
   onProcessingChange,
   onNotice,
+  onDocumentLink,
+  targetHeading,
+  initialScroll,
 }) {
-  const [html, setHtml] = useState('');
+  const [html, setHtml] = useState(null);
+  const scrollRestoredRef = useRef(false);
   const [zoomSvg, setZoomSvg] = useState(null);
   const [expandedTable, setExpandedTable] = useState(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -65,6 +76,20 @@ export default function Preview({
       cancelled = true;
     };
   }, [text, theme, entry, folderHandle, onProcessingChange, previewId]);
+
+  useLayoutEffect(() => {
+    if (html === null || !initialScroll || scrollRestoredRef.current) return;
+    scrollRestoredRef.current = true;
+    // Heading links take precedence over a saved reading position.
+    if (targetHeading) return;
+    window.scrollTo({
+      top: initialScroll.window,
+      left: 0,
+      behavior: 'instant',
+    });
+    const pane = previewRef.current?.querySelector('.split-right');
+    if (pane) pane.scrollTop = initialScroll.pane;
+  }, [html, initialScroll, targetHeading]);
 
   // Structural pass: rebuild handles/colgroup/rail on the fresh DOM. Keyed on
   // html + mode only, so a column drag never rebuilds the handles it holds.
@@ -149,6 +174,15 @@ export default function Preview({
     return () => scroller.removeEventListener('scroll', update);
   }, [mode, entry]);
 
+  useEffect(() => {
+    if (!html || !targetHeading) return;
+    const target = [
+      ...(previewRef.current?.querySelectorAll('.md-body [id]') || []),
+    ].find((node) => node.id === targetHeading);
+    if (target) target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    else onNotice?.(`Heading not found: ${targetHeading}`);
+  }, [html, targetHeading, onNotice]);
+
   function goToTop() {
     const scroller =
       mode === 'edit'
@@ -185,14 +219,26 @@ export default function Preview({
         currentPath || 'pasted.md',
         'https://preview.local/',
       );
-      const targetUrl = new URL(href, currentUrl);
+      let targetUrl;
+      try {
+        targetUrl = new URL(href, currentUrl);
+      } catch (_) {
+        e.preventDefault();
+        onNotice?.('This document link has an invalid URL.');
+        return;
+      }
       if (
         targetUrl.origin === currentUrl.origin &&
         targetUrl.pathname === currentUrl.pathname &&
         targetUrl.hash
       ) {
         e.preventDefault();
-        const id = decodeURIComponent(targetUrl.hash.slice(1));
+        let id;
+        try {
+          id = decodeURIComponent(targetUrl.hash.slice(1));
+        } catch (_) {
+          return;
+        }
         const body = link.closest('.md-body');
         const target = [...body.querySelectorAll('[id]')].find(
           (node) => node.id === id,
@@ -207,6 +253,11 @@ export default function Preview({
           });
           return;
         }
+      }
+      if (onDocumentLink && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href)) {
+        e.preventDefault();
+        void onDocumentLink(href);
+        return;
       }
     }
     const diagram = e.target.closest('.mdiagram');
