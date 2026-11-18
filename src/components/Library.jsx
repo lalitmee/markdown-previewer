@@ -64,7 +64,13 @@ export default function Library({
         layoutRef.current.open = false;
     }
     document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
+    // Close on actual focus entering another control, not on transient blur
+    // while a label forwards a pointer click to its radio or checkbox.
+    document.addEventListener('focusin', closeOutside);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('focusin', closeOutside);
+    };
   }, []);
   const [layout, setLayout] = useState(() => {
     try {
@@ -221,10 +227,6 @@ export default function Library({
                 event.currentTarget.open = false;
                 event.currentTarget.querySelector('summary').focus();
               }
-            }}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget))
-                event.currentTarget.open = false;
             }}
           >
             <summary className="library-control">

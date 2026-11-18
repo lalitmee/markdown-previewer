@@ -176,8 +176,19 @@ describe('Library layout and metadata', () => {
       expect(panel.querySelectorAll('fieldset')).toHaveLength(2);
       expect(panel.querySelectorAll('input[type="radio"]')).toHaveLength(8);
       for (const value of ['3', 'compact']) {
+        const input = panel.querySelector(`input[value="${value}"]`);
+        await act(async () => {
+          panel.querySelector('summary').focus();
+          input
+            .closest('label')
+            .dispatchEvent(new Event('pointerdown', { bubbles: true }));
+          // Clicking non-focusable label text can blur to null before the
+          // browser forwards the click/focus to its associated radio.
+          document.activeElement.blur();
+        });
+        expect(panel.open).toBe(true);
         await act(async () =>
-          panel.querySelector(`input[value="${value}"]`).click(),
+          input.closest('label').querySelector('span').click(),
         );
         expect(panel.open).toBe(true);
         expect(panel.querySelector(`input[value="${value}"]`).checked).toBe(
@@ -210,6 +221,18 @@ describe('Library layout and metadata', () => {
       );
       expect(panel.open).toBe(false);
       expect(document.activeElement).toBe(panel.querySelector('summary'));
+      await act(async () => panel.querySelector('summary').click());
+      await act(async () =>
+        host.querySelector('[aria-label="Grid view"]').focus(),
+      );
+      expect(panel.open).toBe(false);
+      await act(async () => panel.querySelector('summary').click());
+      await act(async () =>
+        document.body.dispatchEvent(
+          new Event('pointerdown', { bubbles: true }),
+        ),
+      );
+      expect(panel.open).toBe(false);
     } finally {
       await act(async () => root.unmount());
       host.remove();
